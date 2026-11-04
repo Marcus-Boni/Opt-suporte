@@ -1,0 +1,330 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "lenis/dist/lenis.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Cores como variáveis que alternam por tema (.dark no <html>, ver lib/theme.tsx).
+ * Mesma nomenclatura nos dois modos: bg-paper/text-ink/bg-card continuam certos no escuro.
+ * .theme-light força o claro num trecho (slides, impressão), mesmo com o app no escuro.
+ */
+:root, .theme-light, .dark .theme-light {
+  color-scheme: light;
+  --paper: #F7F6F1; --paper-2: #F1EFE8; --paper-3: #E8E5DC;
+  --line: #E3E0D6; --line-2: #D1CDC0;
+  --ink: #17160F; --ink-2: #2B2A22; --ink-3: #5E5C52; --ink-4: #67655A; --ink-5: #727066;
+  --night: #0F0E0A;
+  --orange-50: #FFF5F0; --orange-100: #FFE7DC; --orange-200: #FFCDB8; --orange-700: #C73E14; --orange-800: #96300F; --orange-900: #5E1F0A;
+  --ok: #276A43; --ok-soft: #E3F3E8; --warn: #8A5A12; --warn-soft: #FBF0D9; --bad: #C0392B; --bad-soft: #FBE4E1; --info: #2F5F9E; --info-soft: #E2ECF8;
+  --elev-card: 0 1px 2px rgba(23, 22, 15, 0.04), 0 8px 24px -12px rgba(23, 22, 15, 0.18);
+  --elev-pop: 0 12px 40px -12px rgba(23, 22, 15, 0.28), 0 2px 6px rgba(23, 22, 15, 0.06);
+  /* shadcn/ui. Preenchimento laranja com texto branco usa o laranja profundo (#D14318, 4,6:1 com branco, AA);
+     o #FF6B3D (orange-500) fica para acentos sem texto: ícones, gráficos, foco, indicadores. */
+  --background: var(--paper); --foreground: var(--ink);
+  --card: #FFFFFF; --card-foreground: var(--ink);
+  --popover: #FFFFFF; --popover-foreground: var(--ink);
+  --primary: #D14318; --primary-hover: #BC3C15; --primary-foreground: #FFFFFF;
+  --secondary: var(--paper-2); --secondary-foreground: var(--ink);
+  --muted: var(--paper-2); --muted-foreground: var(--ink-3);
+  --accent: #FFF1EB; --accent-foreground: #96300F;
+  --destructive: var(--bad); --border: var(--line); --input: var(--line-2); --ring: #FF6B3D;
+  --radius: 0.625rem;
+  /* Séries de gráfico: valor entregue em laranja, volume em tinta, contexto em cinza. */
+  --chart-1: #FF6B3D; --chart-2: var(--ink); --chart-3: var(--ink-4); --chart-4: #FFAB8A; --chart-5: var(--ink-3);
+}
+.dark {
+  color-scheme: dark;
+  /* Grafite neutro com leve calor (R ≥ G ≥ B quase iguais): sem o tom oliva que o B baixo dava. */
+  --paper: #111111; --paper-2: #1B1B1A; --paper-3: #262524;
+  --line: #2A2928; --line-2: #3A3937;
+  --ink: #F4F3F1; --ink-2: #E0DEDB; --ink-3: #B6B3AF; --ink-4: #9E9B97; --ink-5: #8A8783;
+  --night: #0A0A0A;
+  --orange-50: #24140F; --orange-100: #331A12; --orange-200: #552817; --orange-700: #FF9468; --orange-800: #FFB08F; --orange-900: #FFD2BF;
+  --ok: #6FCB93; --ok-soft: #12241A; --warn: #E7B464; --warn-soft: #2A2112; --bad: #FF7B6C; --bad-soft: #321613; --info: #86AEE6; --info-soft: #132036;
+  --elev-card: 0 0 0 1px rgba(255, 255, 255, 0.055), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+  --elev-pop: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 16px 48px -12px rgba(0, 0, 0, 0.8);
+  --background: var(--paper); --foreground: var(--ink);
+  --card: #181817; --card-foreground: var(--ink);
+  --popover: #1E1E1D; --popover-foreground: var(--ink);
+  --primary: #D14318; --primary-hover: #BC3C15; --primary-foreground: #FFFFFF;
+  --secondary: var(--paper-2); --secondary-foreground: var(--ink);
+  --muted: var(--paper-2); --muted-foreground: var(--ink-3);
+  --accent: #26150F; --accent-foreground: #FFB08F;
+  --destructive: var(--bad); --border: var(--line); --input: var(--line-2); --ring: #FF6B3D;
+  --radius: 0.625rem;
+  --chart-1: #FF6B3D; --chart-2: var(--ink); --chart-3: var(--ink-4); --chart-4: #FFAB8A; --chart-5: var(--ink-3);
+}
+/* Superfícies sempre escuras (sidebar, capa, cartões grain, apresentação): o texto "paper" segue claro no tema escuro. */
+.dark :is(.bg-night, .grain-dark, .on-night, .sidebar-surface) {
+  --paper: #F7F6F1; --paper-2: #F1EFE8; --paper-3: #E8E5DC;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  /* Raios: uma escala só. Controles 10 (lg), menus 12 (xl), cartões 14 (2xl), diálogos 16 (3xl). */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+  --radius-3xl: 16px;
+}
+
+@theme {
+  /*
+   * Tipografia: uma superfamília (Geist + Geist Mono). Mono só para identificadores literais
+   * (códigos, tokens, chaves, texto colado); números usam a sans com tabular-nums.
+   */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* Escala de produto (densa, base 14px). Substitui a padrão do Tailwind de propósito: não use text-[Npx]. */
+  --text-2xs: 11px;   --text-2xs--line-height: 16px;
+  --text-xs: 12px;    --text-xs--line-height: 16px;
+  --text-sm: 13px;    --text-sm--line-height: 20px;
+  --text-base: 14px;  --text-base--line-height: 22px;
+  --text-md: 15px;    --text-md--line-height: 24px;
+  --text-lg: 16px;    --text-lg--line-height: 24px;
+  --text-xl: 18px;    --text-xl--line-height: 26px;
+  --text-2xl: 20px;   --text-2xl--line-height: 28px;
+  --text-3xl: 24px;   --text-3xl--line-height: 30px;
+  --text-4xl: 30px;   --text-4xl--line-height: 36px;
+  --text-5xl: 36px;   --text-5xl--line-height: 40px;
+  --text-6xl: 44px;   --text-6xl--line-height: 48px;
+  --text-7xl: 52px;   --text-7xl--line-height: 56px;
+
+  --tracking-tighter: -0.03em;
+  --tracking-tight: -0.02em;
+  --tracking-wide: 0.04em;
+  --tracking-widest: 0.14em;
+
+  /* Laranja de interface: um passo mais claro e luminoso que o laranja do logotipo (#E84B1F), que nunca é alterado. */
+  --color-orange-300: #FFAB8A;
+  --color-orange-400: #FF8A5C;
+  --color-orange-500: #FF6B3D;
+  --color-orange-600: #F0532A;
+
+  /* Texto discreto sobre superfícies escuras (night/grain): os cinzas de tinta não contrastam lá. */
+  --color-dusk: #ADAAA5;
+  --color-night-2: #1A1A19;
+  --color-night-3: #272625;
+
+
+  /*
+   * Motion: curvas fortes (as nativas são fracas demais) e durações curtas.
+   * Entrada/saída: ease-out. Movimento em tela: ease-in-out. Gaveta: curva iOS.
+   */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-press: 140ms;
+  --duration-pop: 160ms;
+  --duration-modal: 220ms;
+  --duration-drawer: 320ms;
+
+}
+
+/* Cores e sombras que mudam por tema: inline para resolver no elemento (respeita .theme-light). */
+@theme inline {
+  --color-orange-50: var(--orange-50);
+  --color-orange-100: var(--orange-100);
+  --color-orange-200: var(--orange-200);
+  --color-orange-700: var(--orange-700);
+  --color-orange-800: var(--orange-800);
+  --color-orange-900: var(--orange-900);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-paper-3: var(--paper-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-ink-5: var(--ink-5);
+  --color-night: var(--night);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --shadow-card: var(--elev-card);
+  --shadow-pop: var(--elev-pop);
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    /* Altura de linha sem unidade: herdada como proporção, nunca como 22px fixos em títulos grandes. */
+    font-size: var(--text-base); line-height: 1.55;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, h4 { letter-spacing: var(--tracking-tight); }
+  ::selection { background: #FFCDB8; color: #17160F; }
+  .dark ::selection { background: #7A3518; color: #FFF5F0; }
+  :focus-visible { outline: 2px solid #FF6B3D; outline-offset: 2px; border-radius: 6px; }
+  * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; border-color: var(--border); }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 10px; border: 3px solid transparent; background-clip: content-box; }
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+  input, textarea, select, button { font: inherit; letter-spacing: inherit; }
+  td, th, time { font-variant-numeric: tabular-nums; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  /* Menos movimento, não zero: cor e opacidade continuam a comunicar estado; deslocamento, escala e desfoque somem. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-property: color, background-color, border-color, opacity, box-shadow, text-decoration-color !important; scroll-behavior: auto !important; }
+    .rise, .rise-list > *, .fade-in { animation: fadeIn 200ms ease-out both !important; }
+    .shimmer::after { animation: none !important; }
+    .route-progress { transition: opacity 200ms ease !important; }
+  }
+}
+
+@layer components {
+  .card { @apply bg-card rounded-2xl shadow-card; }
+  /* Spotlight: brilho laranja segue o ponteiro na borda do cartão clicável (decorativo; só com mouse). */
+  .card-interactive { position: relative; isolation: isolate; }
+  @media (hover: hover) and (pointer: fine) {
+    .card-interactive::after {
+      content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; padding: 1px;
+      background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 107, 61, 0.55), transparent 70%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+      opacity: 0; transition: opacity 200ms ease;
+    }
+    .card-interactive:hover::after { opacity: 1; }
+  }
+  /* Cartão clicável: sobe 1px e ganha sombra só com ponteiro fino (toque não dispara hover falso). */
+  .card-interactive { transition: transform 200ms var(--ease-out-strong), box-shadow 200ms var(--ease-out-strong), border-color 150ms ease; }
+  @media (hover: hover) and (pointer: fine) {
+    .card-interactive:hover { transform: translateY(-1px); box-shadow: var(--shadow-pop); }
+  }
+  .card-interactive:active { transform: translateY(0) scale(0.995); }
+  .pressable { transition: transform var(--duration-press) var(--ease-out-strong), background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease; }
+  .pressable:active:not(:disabled) { transform: scale(0.97); }
+  .label { @apply block text-sm font-medium text-ink-3 mb-1.5; }
+  /* Sobretítulo: sans, caixa alta, espaçado. Um só estilo de "eyebrow" no produto. */
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-wide; }
+  .link { @apply text-orange-700 underline underline-offset-[3px] decoration-orange-300 hover:decoration-orange-600 transition-colors; }
+  .kbd { @apply inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-line-2 bg-paper-2 px-1 text-2xs font-medium text-ink-4 tabular-nums; }
+}
+
+@layer utilities {
+  /* Texto truncado dentro de flex/grid precisa poder encolher; sem isto o conteúdo dita a largura da página no celular. */
+  .truncate { min-width: 0; }
+  /* Filhos de grid só travam a largura quando pedem (min-w-*); do contrário um título longo força rolagem lateral. */
+  .grid > :not([class*="min-w-"]) { min-width: 0; }
+  .rise { animation: rise 360ms var(--ease-out-strong) both; }
+  .rise-list > * { animation: rise 360ms var(--ease-out-strong) both; }
+  .rise-list > *:nth-child(2) { animation-delay: 40ms; }
+  .rise-list > *:nth-child(3) { animation-delay: 80ms; }
+  .rise-list > *:nth-child(4) { animation-delay: 120ms; }
+  .rise-list > *:nth-child(5) { animation-delay: 160ms; }
+  .rise-list > *:nth-child(6) { animation-delay: 200ms; }
+  .rise-list > *:nth-child(n+7) { animation-delay: 240ms; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 240ms ease-out both; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  /* Esqueleto: base translúcida da tinta (funciona nos dois temas) e um brilho que varre só com transform. */
+  .shimmer { position: relative; overflow: hidden; isolation: isolate; background-color: color-mix(in srgb, var(--ink) 7%, transparent); }
+  .shimmer::after {
+    content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 6%, transparent) 50%, transparent);
+    animation: shimmer 1.6s var(--ease-in-out-strong) infinite;
+  }
+  @keyframes shimmer { to { transform: translateX(100%); } }
+  /* Troca de rota: só opacidade e curta (vista dezenas de vezes por dia; o deslocamento fica com o .rise de cada bloco). */
+  .page-enter { animation: fadeIn 180ms var(--ease-out-strong) backwards; }
+  /* Órbita das telas 404/erro (decorativa, tela rara). */
+  .orbit { animation: orbit 7s linear infinite; }
+  @keyframes orbit { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .orbit { animation: none; } }
+  /* Barras de distribuição crescem da esquerda (transform, sem layout). */
+  .bar-grow { transform-origin: left center; animation: barGrow 600ms var(--ease-out-strong) both; }
+  @keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .thread-line { background: linear-gradient(to bottom, #FF6B3D, #FFCDB8 70%, transparent); }
+  /* Superfície escura com gradiente quente + grão de filme (SVG estático, sem custo de animação). */
+  .grain-dark {
+    background-color: #0E0E0D;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      radial-gradient(ellipse at 20% 0%, rgba(255,107,61,0.22), transparent 55%),
+      radial-gradient(ellipse at 100% 100%, rgba(255,138,92,0.12), transparent 50%);
+  }
+  /*
+   * Sidebar: grafite com profundidade (brilho laranja difuso no topo, luz fria no rodapé, grão de filme
+   * e um filete de luz na borda direita). Sempre escura, nos dois temas.
+   */
+  .sidebar-surface {
+    /* Sem `position`: o aside é sticky e o Sheet é fixed, ambos já servem de âncora ao ::after. */
+    isolation: isolate; background-color: #0D0D0C;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      radial-gradient(120% 45% at 0% 0%, rgba(209, 67, 24, 0.20), transparent 60%),
+      radial-gradient(90% 35% at 100% 100%, rgba(255, 255, 255, 0.045), transparent 70%),
+      linear-gradient(180deg, #121211 0%, #0B0B0A 100%);
+  }
+  .sidebar-surface::after {
+    content: ""; position: absolute; inset: 0 0 0 auto; width: 1px; pointer-events: none; z-index: 1;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05) 40%, rgba(255, 255, 255, 0.03));
+  }
+  /* Título que entra palavra a palavra com desfoque (só na capa do login: vista uma vez). */
+  .blur-in > span { display: inline-block; animation: blurIn 700ms var(--ease-out-strong) both; animation-delay: calc(120ms + var(--i) * 60ms); }
+  @keyframes blurIn { from { opacity: 0; filter: blur(8px); transform: translateY(6px); } to { opacity: 1; filter: blur(0); transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .blur-in > span { animation: fadeIn 200ms ease-out both !important; } }
+  /* Aurora lenta e decorativa (só na capa do login: vista uma vez por sessão). */
+  .aurora { position: relative; isolation: isolate; }
+  .aurora::before {
+    content: ""; position: absolute; inset: -30%; z-index: -1; pointer-events: none;
+    background: radial-gradient(40% 50% at 30% 20%, rgba(255,107,61,0.26), transparent 70%), radial-gradient(35% 45% at 80% 85%, rgba(255,138,92,0.16), transparent 70%);
+    animation: aurora 26s var(--ease-in-out-strong) infinite alternate; will-change: transform;
+  }
+  @keyframes aurora { from { transform: translate3d(-4%, -3%, 0) rotate(-2deg); } to { transform: translate3d(5%, 4%, 0) rotate(3deg); } }
+  @media (prefers-reduced-motion: reduce) { .aurora::before { animation: none; } }
+}
+
+/* Gráficos (Recharts): sem anel de foco nativo, eixos com números tabulares. */
+.recharts-wrapper:focus, .recharts-surface:focus { outline: none; }
+.recharts-cartesian-axis-tick-value { font-variant-numeric: tabular-nums; font-size: var(--text-2xs); }
+
+/* Troca de tema (lib/theme.tsx): sem o crossfade padrão, só o clip-path em chevron atua. */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+
+/* Modo apresentação e impressão */
+dialog::backdrop { background: rgba(15, 14, 10, 0.45); backdrop-filter: blur(2px); }
+@media print {
+  @page { size: A4 landscape; margin: 0; }
+  body { background: white; }
+  html.dark { color-scheme: light; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .no-print { display: none !important; }
+  .print-slide { page-break-after: always; break-after: page; width: 297mm; height: 210mm; overflow: hidden; }
+  .print-slide:last-child { page-break-after: auto; break-after: auto; }
+}
