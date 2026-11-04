@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+server/data
+*.local
+.impeccable
+test-results
+uploads-test
+.playwright-mcp
+web/dist
+
+# Ferramentas locais de IA/editor (skills de terceiros, configuração pessoal)
+.agents/
+.claude/
+skills-lock.json

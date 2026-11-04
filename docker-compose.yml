@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: optsolv
+      POSTGRES_PASSWORD: optsolv
+      POSTGRES_DB: optsolv_experience
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optsolv -d optsolv_experience"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  pgdata:
