@@ -1,7 +1,7 @@
 import { and, eq, gt, isNull, lt } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { unauthorized } from '../lib/errors.js';
-import { randomToken, sha256, verifyPassword } from './password.js';
+import { hashPassword, randomToken, sha256, verifyPassword } from './password.js';
 import type { Actor } from './actor.js';
 
 const SESSION_DAYS = 7;
@@ -18,9 +18,13 @@ async function actorFromUser(user: typeof schema.users.$inferSelect): Promise<Ac
   return { kind: 'user', id: user.id, userId: user.id, label: user.name, role: user.role, clientIds };
 }
 
+// Hash descartável: login de e-mail inexistente/inativo também paga o custo do scrypt (tempo igual, sem enumerar contas).
+let dummyHash: Promise<string> | undefined;
+
 export async function login(email: string, password: string) {
   const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email.toLowerCase().trim()));
-  if (!user || !user.isActive || !(await verifyPassword(password, user.passwordHash))) {
+  const ok = await verifyPassword(password, user?.passwordHash ?? (await (dummyHash ??= hashPassword(randomToken(16)))));
+  if (!user || !user.isActive || !ok) {
     throw unauthorized('E-mail ou senha inválidos.');
   }
   await db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, new Date()));
@@ -51,7 +55,8 @@ export async function actorFromToken(token: string): Promise<Actor | null> {
     await db.update(schema.apiCredentials).set({ lastUsedAt: new Date() }).where(eq(schema.apiCredentials.id, cred.id));
   }
   const clientIds: Actor['clientIds'] = cred.clientId ? [cred.clientId] : cred.role === 'admin_optsolv' ? 'all' : [];
-  return { kind: 'credential', id: cred.id, userId: cred.createdBy, label: `Agente: ${cred.name}`, role: cred.role, clientIds };
+  // Credencial não é o usuário que a criou: sem userId, ela não herda autoria nem pode agir "como" ele.
+  return { kind: 'credential', id: cred.id, userId: null, label: `Agente: ${cred.name}`, role: cred.role, clientIds };
 }
 
 export async function userProfile(actor: Actor) {

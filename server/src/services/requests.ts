@@ -132,7 +132,8 @@ export async function createRequest(actor: Actor, input: CreateRequestInput) {
       clientId: project.clientId, projectId: project.id, number: next,
       title: (input.title?.trim() || deriveTitle(description)).slice(0, 140), description,
       category: input.category ?? 'melhoria', priority: input.priority ?? 'media', status: 'nova', source: input.source,
-      authorUserId: actor.userId, authorLabel: input.authorLabel ?? actor.label,
+      // Nome do autor só pode ser informado pela equipe (ex.: remetente da captura de WhatsApp); cliente nunca se passa por outro.
+      authorUserId: actor.userId, authorLabel: (isInternal(actor) && input.authorLabel?.trim()) || actor.label,
       sourceMessageId: input.sourceMessageId, sourceExcerpt: input.sourceExcerpt,
     }).returning();
     await tx.insert(schema.requestEvents).values({ requestId: req.id, actorLabel: req.authorLabel, type: 'criada', toValue: input.source, isPublic: true });
@@ -219,7 +220,7 @@ export async function deleteComment(actor: Actor, id: string, commentId: string)
   if (!c) throw notFound('Comentário');
   const [req] = await db.select({ clientId: schema.requests.clientId }).from(schema.requests).where(eq(schema.requests.id, id));
   assertClient(actor, req!.clientId, 'Comentário');
-  if (c.authorUserId !== actor.userId || Date.now() - c.createdAt.getTime() > 10 * 60_000) throw forbidden('Só o autor pode desfazer, e só nos primeiros 10 minutos.');
+  if (!actor.userId || c.authorUserId !== actor.userId || Date.now() - c.createdAt.getTime() > 10 * 60_000) throw forbidden('Só o autor pode desfazer, e só nos primeiros 10 minutos.');
   await db.delete(schema.requestComments).where(eq(schema.requestComments.id, commentId));
   await audit(actor, 'request.comment.undo', 'request', id, req!.clientId, { commentId });
 }

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { app, clientBySlug, loginCookie, projectByCode, requestByNumber, TOKEN_CIDADE } from './helpers.js';
+import { actorFor, app, clientBySlug, loginCookie, projectByCode, requestByNumber, TOKEN_CIDADE } from './helpers.js';
 import { pool } from '../src/db/index.js';
 
 let api: Awaited<ReturnType<typeof app>>;
@@ -113,6 +113,19 @@ describe('apresentações e login (auditoria)', () => {
     let last = 0;
     for (let i = 0; i < 11; i++) last = (await api.inject({ method: 'POST', url: '/api/v1/auth/login', payload })).statusCode;
     expect(last).toBe(429);
+  });
+
+  it('cliente não escolhe o nome do autor da solicitação', async () => {
+    const project = await projectByCode(cidadeId, 'GESTAO');
+    const res = await api.inject({ method: 'POST', url: '/api/v1/requests', headers: { cookie: joao }, payload: { projectId: project.id, description: 'Teste de autoria forjada no pedido.', source: 'portal', authorLabel: 'Helena Prado (Optsolv)' } });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().authorLabel).toBe('João Pereira');
+  });
+
+  it('credencial de API não herda a identidade de quem a criou', async () => {
+    const actor = await actorFor(TOKEN_CIDADE);
+    expect(actor?.kind).toBe('credential');
+    expect(actor?.userId).toBeNull();
   });
 
   it('respostas trazem X-Content-Type-Options: nosniff', async () => {
