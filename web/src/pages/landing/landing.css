@@ -1,0 +1,86 @@
+/* Página de apresentação (Landing.tsx). Carregado só com a rota "/" (chunk próprio). */
+
+html.lp-html { background: #111111; }
+/* Superfície sempre escura: tokens do tema escuro (.dark) com "paper" claro, como nas superfícies on-night. */
+.dark.lp-root { --paper: #F7F6F1; --paper-2: #F1EFE8; --paper-3: #E8E5DC; background-color: #111111; scroll-behavior: auto; }
+.lp-root section[id] { scroll-margin-top: 80px; }
+
+/* Navegação: transparente no topo, vira vidro ao rolar (classe aplicada pelo ScrollTrigger). */
+.lp-nav-inner { transition: background-color 300ms ease, box-shadow 300ms ease, transform 400ms var(--ease-out-strong), max-width 400ms var(--ease-out-strong); border-radius: 999px; }
+.lp-nav.is-scrolled .lp-nav-inner {
+  max-width: 64rem; transform: translateY(10px);
+  background: rgba(20, 20, 19, 0.72); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px -20px rgba(0, 0, 0, 0.8);
+}
+
+/* Botões: laranja profundo com luz interna; pressionar encolhe levemente. */
+.lp-btn { transition: transform 160ms var(--ease-out-strong), background-color 200ms ease, box-shadow 200ms ease; }
+.lp-btn:active { transform: scale(0.97); }
+.lp-btn-primary {
+  background: linear-gradient(180deg, #E0521F 0%, #C93F14 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 0 0 1px rgba(209, 67, 24, 0.6), 0 10px 30px -10px rgba(209, 67, 24, 0.7);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lp-btn-primary:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 0 0 1px rgba(255, 107, 61, 0.8), 0 14px 40px -10px rgba(255, 107, 61, 0.75); }
+}
+
+/* Grade técnica que some nas bordas. */
+.lp-grid {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 70% 55% at 50% 30%, #000 30%, transparent 75%);
+}
+
+/* Aurora: dois focos laranja derivando devagar (decorativo; parado com movimento reduzido). */
+.lp-aurora::before, .lp-aurora::after { content: ""; position: absolute; border-radius: 999px; filter: blur(80px); will-change: transform; }
+.lp-aurora::before { width: 60%; height: 70%; left: 8%; top: -20%; background: rgba(209, 67, 24, 0.32); animation: lpDrift 18s var(--ease-in-out-strong) infinite alternate; }
+.lp-aurora::after { width: 45%; height: 60%; right: 6%; top: 0%; background: rgba(255, 138, 92, 0.16); animation: lpDrift 22s var(--ease-in-out-strong) infinite alternate-reverse; }
+.lp-aurora-bottom::before { top: auto; bottom: -30%; left: 20%; }
+.lp-aurora-bottom::after { top: auto; bottom: -20%; }
+@keyframes lpDrift { from { transform: translate3d(-6%, -4%, 0) scale(1); } to { transform: translate3d(8%, 6%, 0) scale(1.12); } }
+
+/* Selo do hero com borda de luz que gira (cônica + @property). */
+@property --lp-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+.lp-badge {
+  background: linear-gradient(#161615, #161615) padding-box, conic-gradient(from var(--lp-angle), rgba(255, 255, 255, 0.08) 0%, #FF6B3D 12%, rgba(255, 255, 255, 0.08) 25%, rgba(255, 255, 255, 0.08) 100%) border-box;
+  border: 1px solid transparent;
+  animation: lpSpin 5s linear infinite;
+}
+@keyframes lpSpin { to { --lp-angle: 360deg; } }
+
+/* Palavra com brilho que atravessa (texto recortado). */
+/* Também nos filhos: o SplitText move o texto para dentro de elementos que não herdariam o recorte. */
+.lp-shine, .lp-shine * {
+  background: linear-gradient(110deg, #FF6B3D 0%, #FF6B3D 38%, #FFD2BF 50%, #FF6B3D 62%, #FF6B3D 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: lpShine 4.5s var(--ease-in-out-strong) infinite;
+}
+@keyframes lpShine { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+
+/* Cartões: vidro escuro com filete de luz no topo e spotlight que segue o ponteiro. */
+.lp-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 30px 60px -40px rgba(0, 0, 0, 0.9);
+}
+.spot { isolation: isolate; }
+.spot::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: inherit; opacity: 0; transition: opacity 300ms ease;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 107, 61, 0.12), transparent 60%);
+}
+@media (hover: hover) and (pointer: fine) { .spot:hover::before { opacity: 1; } }
+
+/* Painel das abas: troca com desfoque curto (mascara o cruzamento dos dois estados). */
+.lp-panel { animation: lpPanel 420ms var(--ease-out-strong) both; }
+@keyframes lpPanel { from { opacity: 0; filter: blur(6px); transform: translateY(6px); } to { opacity: 1; filter: blur(0); transform: none; } }
+
+/* Faixa infinita (movimento constante: linear). Pausa ao passar o mouse. */
+.lp-marquee { mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+.lp-marquee-track { animation: lpMarquee 48s linear infinite; }
+@media (hover: hover) { .lp-marquee:hover .lp-marquee-track { animation-play-state: paused; } }
+@keyframes lpMarquee { to { transform: translateX(-50%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-aurora::before, .lp-aurora::after, .lp-badge, .lp-shine, .lp-marquee-track { animation: none !important; }
+  .lp-panel { animation: fadeIn 150ms ease-out both !important; }
+  .lp-marquee-track { flex-wrap: wrap; width: auto; justify-content: center; }
+}

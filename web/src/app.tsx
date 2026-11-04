@@ -23,6 +23,8 @@ import { PortalResultsPage, PortalResultDetailPage } from './pages/portal/Result
 
 // Modo apresentação e impressão carregam GSAP só quando abertos: ficam fora do bundle principal.
 const PresentPage = lazy(() => import('./pages/shared/Present').then((m) => ({ default: m.PresentPage })));
+// Página de apresentação pública: GSAP + anime.js num chunk próprio.
+const LandingPage = lazy(() => import('./pages/landing/Landing').then((m) => ({ default: m.LandingPage })));
 const PrintPage = lazy(() => import('./pages/shared/Present').then((m) => ({ default: m.PrintPage })));
 
 function Splash() {
@@ -46,7 +48,7 @@ export function App() {
     <ErrorBoundary>
     <Suspense fallback={<Splash />}>
     <Routes>
-      <Route path="/" element={<Navigate to="/entrar" replace />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="/entrar" element={<LoginPage />} />
       <Route path="/app" element={<RequireRole internal><InternalLayout /></RequireRole>}>
         <Route index element={<OverviewPage />} />
