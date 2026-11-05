@@ -15,7 +15,7 @@ Solicitações, entregas e evidências de cada cliente em um só lugar. Portal p
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-FF6B3D)
-![Tests](https://img.shields.io/badge/tests-28%20passing-2EA043)
+![Tests](https://img.shields.io/badge/tests-33%20passing-2EA043)
 
 [Visão geral](#visão-geral) · [Começando](#começando) · [Funcionalidades](#funcionalidades) · [Arquitetura](#arquitetura) · [API e MCP](#api-e-mcp) · [Design e motion](#design-e-motion) · [Testes](#testes)
 
@@ -87,6 +87,9 @@ pnpm dev
 > [!TIP]
 > Sem Docker, aponte `DATABASE_URL` (em `.env` e `server/.env`) para qualquer Postgres 15+ e siga a partir de `pnpm db:migrate`.
 
+> [!IMPORTANT]
+> **Banco real (Azure Database for PostgreSQL):** rode só `pnpm db:migrate` e `pnpm --filter server db:create-admin`. Seed, reset e testes **recusam bancos remotos** por segurança. Guia completo em [`docs/DATABASE.md`](docs/DATABASE.md).
+
 ### Contas de demonstração
 
 Todas com a senha `optsolv2026`.
@@ -114,8 +117,9 @@ Tokens de API/MCP criados pelo seed (o banco guarda só o hash):
 | `pnpm dev` | API (4000) e web (5173) em paralelo, com reload |
 | `pnpm db:up` / `pnpm db:down` | Sobe/derruba o Postgres do `docker-compose.yml` (porta 5434) |
 | `pnpm db:migrate` | Aplica as migrações Drizzle (`server/drizzle`) |
-| `pnpm db:seed` | Seed fictício e idempotente |
-| `pnpm db:reset` | Limpa banco e anexos, migra e semeia de novo |
+| `pnpm db:seed` | Seed fictício e idempotente (só banco local) |
+| `pnpm --filter server db:create-admin` | Cria o primeiro administrador num banco novo |
+| `pnpm db:reset` | Limpa o banco (anexos inclusos), migra e semeia de novo (só banco local) |
 | `pnpm test` | Suíte Vitest em banco isolado |
 | `pnpm typecheck` | Checagem de tipos nos dois pacotes |
 | `pnpm build` | Build de produção do web |
@@ -174,7 +178,7 @@ flowchart LR
 | Camada | Tecnologias |
 |---|---|
 | **Servidor** | Fastify 5, Drizzle ORM, Zod 4 (`fastify-type-provider-zod` gera o OpenAPI), MCP SDK, scrypt |
-| **Banco** | PostgreSQL 17 (Docker Compose), migrações SQL versionadas |
+| **Banco** | PostgreSQL 17: Docker Compose local, Azure Database for PostgreSQL em produção; TLS verificado, migrações SQL versionadas, anexos em `bytea` |
 | **Web** | React 19, Vite 7, React Router 7, TanStack Query 5, Tailwind CSS 4, shadcn/ui (Radix) |
 | **Interface** | Recharts, cmdk, Sonner, react-day-picker, Lucide |
 | **Motion** | GSAP (SplitText, ScrollTrigger), anime.js 4, Lenis, View Transitions API |
@@ -211,13 +215,13 @@ flowchart LR
 │       ├── pages/shared/   modo apresentação e impressão
 │       ├── components/     design system (ui/), slides, gráficos, esqueletos, telas de status
 │       └── lib/            API, autenticação, tema, toasts
-├── docs/                   API.md, MCP.md, TESTES.md, screenshots/, evidencias/
+├── docs/                   API.md, MCP.md, DATABASE.md, TESTES.md, screenshots/, evidencias/
 └── assets/marca_oficial/   fonte da verdade dos logotipos
 ```
 
 ## API e MCP
 
-Documentação completa em [`docs/API.md`](docs/API.md) e [`docs/MCP.md`](docs/MCP.md).
+Documentação completa em [`docs/API.md`](docs/API.md), [`docs/MCP.md`](docs/MCP.md) e [`docs/DATABASE.md`](docs/DATABASE.md).
 
 - **API REST v1:** 40 rotas em `/api/v1`, OpenAPI em `/docs`, sessão por cookie **ou** `Authorization: Bearer osk_…`, envelope de erro uniforme, `Idempotency-Key` nas criações, paginação e filtros.
 - **MCP:** servidor STDIO com 10 ferramentas concretas (schemas Zod), autenticado por credencial e limitado ao escopo dela.
@@ -248,11 +252,12 @@ A solicitação criada aparece no backoffice com a origem **API** (ou **Agente M
 pnpm test
 ```
 
-28 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
+33 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
 - isolamento entre clientes na API, no MCP e no download de anexos;
 - criação via API e MCP, com idempotência;
 - upload com limites de tamanho e tipo;
-- concorrência e heurísticas da captura de WhatsApp.
+- concorrência e heurísticas da captura de WhatsApp;
+- anexos no banco (bytes íntegros, ETag/304, assinatura de arquivo) e travas contra banco remoto.
 
 As jornadas de interface (D1 a D7) estão documentadas com capturas em [`docs/TESTES.md`](docs/TESTES.md).
 
@@ -262,7 +267,7 @@ As jornadas de interface (D1 a D7) estão documentadas com capturas em [`docs/TE
 - PDF gerado pelo diálogo de impressão do navegador, não no servidor.
 - Permissões por cliente; colaboradores veem todos os projetos dos clientes vinculados.
 - Sem notificações por e-mail, SLA, registro de horas ou redefinição de senha.
-- Anexos em disco local (`server/data/uploads`), sem antivírus nem CDN.
+- Anexos guardados no próprio Postgres (até 5 MB, com verificação de assinatura), sem antivírus nem CDN; o caminho natural de crescimento é o Azure Blob Storage.
 - Apresentações são instantâneos do período; dados novos pedem nova geração (o editor avisa).
 - Limite de tentativas de login em memória. Em produção, o servidor recusa subir sem `SESSION_SECRET` e o seed recusa rodar.
 
