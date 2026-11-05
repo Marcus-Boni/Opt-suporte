@@ -6,7 +6,7 @@
 pnpm test
 ```
 
-Roda em `optsolv_experience_test`, um banco criado automaticamente ao lado do banco de demonstração e **recriado, migrado e semeado a cada execução** (`server/test/global-setup.ts`). Anexos de teste vão para `server/data/uploads-test`.
+Roda em `optsolv_experience_test`, um banco criado automaticamente ao lado do banco local de desenvolvimento e **recriado, migrado e semeado a cada execução** (`server/test/global-setup.ts`). Anexos de teste ficam no próprio banco de teste.
 
 Última execução (03/11/2026): **2 arquivos, 27 testes, todos aprovados**.
 
@@ -42,7 +42,7 @@ Também: `pnpm typecheck` (server e web sem erros) e `pnpm build` (build de prod
 
 Executadas com Playwright sobre a aplicação real (API + banco), em 1366×900 e 390×844. Capturas em `docs/evidencias/`:
 
-| Demonstração | Capturas |
+| Jornada | Capturas |
 |---|---|
 | D1 — captura WhatsApp (Ana, Cidade Engenharia) | `D1-captura-sugestoes.png` (repetida de CE-4 sinalizada, cortesias ignoradas), `D1-captura-registradas.png` |
 | D2 — tratamento e entrega vinculada a duas solicitações | `D2-solicitacao-tratada.png`, `D2-nova-entrega.png`, `D2-entrega-publicada.png` (evidência + arquivo + publicação) |

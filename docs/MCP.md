@@ -4,7 +4,7 @@
 
 ## Autenticação e escopo
 
-O servidor exige `OPTSOLV_API_TOKEN` com uma credencial criada em **Acessos e API** (ou uma das duas do seed). A credencial define o papel e o cliente de escopo; o agente só enxerga e escreve dentro dele. Ferramentas chamadas fora do escopo retornam `isError: true` com `not_found`.
+O servidor exige `OPTSOLV_API_TOKEN` com uma credencial criada em **Acessos e API** (o banco guarda só o hash). A credencial define o papel e o cliente de escopo; o agente só enxerga e escreve dentro dele. Ferramentas chamadas fora do escopo retornam `isError: true` com `not_found`.
 
 ## Rodar
 
@@ -15,7 +15,7 @@ pnpm mcp
 Com outro token:
 
 ```bash
-OPTSOLV_API_TOKEN=osk_demo_admin_total_000000000000000000 pnpm mcp
+OPTSOLV_API_TOKEN=osk_<token da credencial> pnpm mcp
 ```
 
 Configuração para Claude Desktop / Claude Code (`claude_desktop_config.json` ou `.mcp.json`):
@@ -23,11 +23,11 @@ Configuração para Claude Desktop / Claude Code (`claude_desktop_config.json` o
 ```json
 {
   "mcpServers": {
-    "optsolv-experience": {
+    "optsolv-suporte": {
       "command": "pnpm",
       "args": ["--filter", "server", "mcp"],
       "cwd": "C:/caminho/para/opt-suporte2",
-      "env": { "OPTSOLV_API_TOKEN": "osk_demo_agente_cidade_0000000000000000", "DATABASE_URL": "postgres://optsolv:optsolv@127.0.0.1:5434/optsolv_experience" }
+      "env": { "OPTSOLV_API_TOKEN": "osk_<token da credencial>" }
     }
   }
 }
@@ -44,7 +44,7 @@ Saída esperada:
 ```
 Ferramentas: list_clients, list_projects, search_requests, get_request, create_request, add_request_comment, create_delivery, link_delivery_requests, get_value_summary, create_presentation
 Clientes visíveis: Cidade Engenharia
-Criada: CE-18 · Criada via MCP (demonstração D6): permitir anexar mais de uma foto po…
+Criada: CE-18 · Criada via MCP: permitir anexar mais de uma foto po…
 18 criadas, 6 concluídas, 5 entregas publicadas no período.
 ```
 

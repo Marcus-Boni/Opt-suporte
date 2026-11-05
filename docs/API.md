@@ -14,10 +14,10 @@ Duas formas, verificadas em todas as rotas exceto `POST /auth/login`:
 A identidade resolve um **ator** com papel (`admin_optsolv`, `colaborador_optsolv`, `cliente`) e a lista de clientes visíveis. Nenhum `clientId` enviado pelo chamador amplia esse escopo: ele só filtra. Recurso fora do escopo responde **404** `not_found`, sem revelar se existe.
 
 ```bash
-curl -c cookies.txt -X POST http://localhost:4000/api/v1/auth/login -H "Content-Type: application/json" -d "{\"email\":\"admin@optsolv.demo\",\"password\":\"optsolv2026\"}"
+curl -c cookies.txt -X POST http://localhost:4000/api/v1/auth/login -H "Content-Type: application/json" -d "{\"email\":\"<seu e-mail>\",\"password\":\"<sua senha>\"}"
 ```
 ```bash
-curl -H "Authorization: Bearer osk_demo_agente_cidade_0000000000000000" http://localhost:4000/api/v1/auth/me
+curl -H "Authorization: Bearer $OPTSOLV_API_TOKEN" http://localhost:4000/api/v1/auth/me
 ```
 
 ## Erros
@@ -70,7 +70,7 @@ Sempre `{ "error": { "code", "message", "details?" } }`. Códigos: `validation` 
 Criar solicitação com credencial (idempotente):
 
 ```bash
-curl -X POST http://localhost:4000/api/v1/requests -H "Authorization: Bearer osk_demo_agente_cidade_0000000000000000" -H "Content-Type: application/json" -H "Idempotency-Key: pedido-42" -d "{\"projectId\":\"<projectId>\",\"description\":\"Permitir exportar a agenda em PDF.\",\"category\":\"melhoria\",\"priority\":\"media\"}"
+curl -X POST http://localhost:4000/api/v1/requests -H "Authorization: Bearer $OPTSOLV_API_TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: pedido-42" -d "{\"projectId\":\"<projectId>\",\"description\":\"Permitir exportar a agenda em PDF.\",\"category\":\"melhoria\",\"priority\":\"media\"}"
 ```
 
 Repetir a mesma chamada com a mesma chave devolve `200` e o mesmo registro. Listar só o que veio de agentes:

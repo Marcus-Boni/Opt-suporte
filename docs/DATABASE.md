@@ -31,15 +31,15 @@ pnpm --filter server db:create-admin --email pessoa@optsolv.com.br --name "Nome 
 
 ## Travas de segurança
 
-Comandos destrutivos ou de demonstração **recusam qualquer banco que não seja local**:
+Comandos destrutivos ou de dados de exemplo **recusam qualquer banco que não seja local**:
 
 | Comando | Em banco local | Em banco remoto |
 |---|---|---|
-| `pnpm db:seed` | Grava dados fictícios e tokens públicos | Recusado |
+| `pnpm db:seed` | Grava dados de exemplo e tokens conhecidos | Recusado |
 | `pnpm db:reset` | Apaga o schema e semeia de novo | Recusado (e sempre recusado com `NODE_ENV=production`) |
 | `pnpm test` | Recria o banco irmão `optsolv_experience_test` | Recusado |
 
-Para um banco remoto **descartável** (ex.: homologação de demonstração), libere de propósito digitando o nome do banco: `CONFIRM_DATABASE=<nome-do-banco> pnpm db:reset`. Os testes usam `TEST_DATABASE_URL`, nunca a `DATABASE_URL` da aplicação.
+Para um banco remoto **descartável** (ex.: homologação), libere de propósito digitando o nome do banco: `CONFIRM_DATABASE=<nome-do-banco> pnpm db:reset`. Os testes usam `TEST_DATABASE_URL`, nunca a `DATABASE_URL` da aplicação.
 
 ## Anexos no banco
 
