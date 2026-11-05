@@ -104,7 +104,7 @@ pnpm db:migrate && pnpm db:seed
 > [!IMPORTANT]
 > No banco real, seed, reset e testes **recusam bancos remotos** por segurança. Guia completo em [`docs/DATABASE.md`](docs/DATABASE.md).
 
-### Contas de demonstração
+### Contas de demonstração (só no ambiente local)
 
 Todas com a senha `optsolv2026`.
 
