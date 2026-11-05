@@ -66,17 +66,34 @@ Nenhuma credencial externa é necessária.
 pnpm install
 ```
 ```bash
-cp .env.example .env && cp .env.example server/.env
+cp .env.example server/.env
 ```
+
+Preencha a `DATABASE_URL` do Azure e o `SESSION_SECRET` em `server/.env`. Depois:
+
+```bash
+pnpm db:migrate
+```
+```bash
+pnpm --filter server db:create-admin --email pessoa@optsolv.com.br --name "Nome Sobrenome"
+```
+```bash
+pnpm dev
+```
+
+<details>
+<summary><b>Ambiente local de demonstração</b> (Docker, dados fictícios)</summary>
+
+Use a `DATABASE_URL` local comentada no `.env.example` e rode:
+
 ```bash
 pnpm db:up
 ```
 ```bash
 pnpm db:migrate && pnpm db:seed
 ```
-```bash
-pnpm dev
-```
+
+</details>
 
 | Endereço | O que é |
 |---|---|
@@ -84,11 +101,8 @@ pnpm dev
 | http://localhost:4000/docs | Swagger UI da API v1 |
 | http://localhost:4000/openapi.json | Especificação OpenAPI 3.1 |
 
-> [!TIP]
-> Sem Docker, aponte `DATABASE_URL` (em `.env` e `server/.env`) para qualquer Postgres 15+ e siga a partir de `pnpm db:migrate`.
-
 > [!IMPORTANT]
-> **Banco real (Azure Database for PostgreSQL):** rode só `pnpm db:migrate` e `pnpm --filter server db:create-admin`. Seed, reset e testes **recusam bancos remotos** por segurança. Guia completo em [`docs/DATABASE.md`](docs/DATABASE.md).
+> No banco real, seed, reset e testes **recusam bancos remotos** por segurança. Guia completo em [`docs/DATABASE.md`](docs/DATABASE.md).
 
 ### Contas de demonstração
 
