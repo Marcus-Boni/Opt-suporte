@@ -4,12 +4,17 @@ import { badRequest } from '../lib/errors.js';
 import { audit } from './audit.js';
 import { getProject } from './clients.js';
 import { createRequest, deriveTitle, openRequestsForClient, type RequestCategory, type RequestPriority } from './requests.js';
+import { analyzeBlocks, PROMPT_VERSION } from './intake-ai.js';
 
 /**
- * Captura assistida de WhatsApp — modo demonstração determinístico.
- * Não há conexão com grupos nem IA externa: tudo é heurística local, revisada por uma pessoa antes de gravar.
+ * Captura assistida de WhatsApp: a equipe cola as mensagens, o sistema sugere solicitações e uma pessoa revisa antes de gravar.
+ * Leitura, agrupamento e detecção de repetidas são determinísticos. Título, categoria, prioridade e "há demanda?"
+ * vêm da IA (Microsoft Foundry) quando configurada; sem ela, ou se ela falhar, das heurísticas locais.
+ * Não há conexão com grupos de WhatsApp.
  */
-export const ANALYSIS_MODE = 'demo-deterministico';
+export const ANALYSIS_MODE = 'heuristica';
+/** Modos aceitos no registro da origem: heurística local ou IA com o nome da implantação. */
+export const ANALYSIS_MODE_PATTERN = /^(heuristica|demo-deterministico|ia:[\w.-]{1,60})$/;
 
 type Message = { sender: string; sentAt: string | null; text: string };
 
@@ -84,6 +89,10 @@ export function classify(text: string) {
 export type Suggestion = {
   index: number; sender: string; sentAt: string | null; excerpt: string;
   title: string; description: string; category: RequestCategory; priority: RequestPriority; confidence: number;
+  /** Quem sugeriu título/categoria/prioridade deste item. */
+  analyzedBy: 'ia' | 'heuristica';
+  /** Aviso para a revisão humana (ex.: bloco recusado pelo filtro de segurança da IA). */
+  notice?: string;
   ignored?: string;
   duplicateOf?: { requestId: string; number: number; title: string; score: number };
   similarTo?: { index: number; score: number };
@@ -96,6 +105,8 @@ export async function previewWhatsApp(actor: Actor, input: { clientId: string; p
   if (!input.text.trim()) throw badRequest('Cole o texto das mensagens.');
   const blocks = groupBlocks(parseWhatsApp(input.text));
   const existing = await openRequestsForClient(actor, input.clientId);
+  // Cortesias óbvias ("ok", "bom dia") nem vão para o modelo: economiza tokens e tempo.
+  const ai = await analyzeBlocks(blocks.flatMap((b, index) => (b.noise ? [] : [{ index, text: b.text }])));
   const suggestions: Suggestion[] = blocks.map((b, index) => {
     const { category, priority, confidence } = classify(b.text);
     // Título e descrição ignoram linhas de saudação no início do bloco ("Bom dia pessoal").
@@ -103,9 +114,16 @@ export async function previewWhatsApp(actor: Actor, input: { clientId: string; p
     const meaningful = lines.filter((l) => !isNoise(l));
     const body = (meaningful.length ? meaningful : lines).join('\n');
     const s: Suggestion = {
-      index, sender: b.sender, sentAt: b.sentAt, excerpt: b.text, title: deriveTitle(body), description: body, category, priority, confidence,
+      index, sender: b.sender, sentAt: b.sentAt, excerpt: b.text, title: deriveTitle(body), description: body, category, priority, confidence, analyzedBy: 'heuristica',
     };
     if (b.noise) s.ignored = 'Mensagem curta ou de cortesia, sem demanda identificável.';
+    if (ai.ok && ai.filtered.has(index)) s.notice = 'O filtro de segurança da IA recusou esta mensagem; classificada por regras. Revise com atenção.';
+    const it = ai.ok ? ai.items.get(index) : undefined;
+    if (it && !b.noise) {
+      Object.assign(s, { category: it.category, priority: it.priority, confidence: Math.round(it.confidence * 100) / 100, analyzedBy: 'ia' as const });
+      if (it.title) s.title = it.title;
+      if (!it.actionable) s.ignored = it.ignoredReason || 'A IA não identificou uma demanda nesta mensagem.';
+    }
     return s;
   });
   for (const s of suggestions) {
@@ -122,18 +140,24 @@ export async function previewWhatsApp(actor: Actor, input: { clientId: string; p
       if (score >= 0.5 && (!s.similarTo || score > s.similarTo.score)) s.similarTo = { index: other.index, score: Math.round(score * 100) / 100 };
     }
   }
-  return { mode: ANALYSIS_MODE, messageCount: blocks.length, suggestions };
+  return {
+    mode: ai.ok ? ai.mode : ANALYSIS_MODE,
+    // Transparência na tela: qual modelo analisou, ou por que caiu para as regras locais.
+    ai: ai.ok ? { model: ai.model, promptVersion: PROMPT_VERSION, ms: ai.ms, tokens: ai.usage.totalTokens } : { fallbackReason: ai.reason },
+    messageCount: blocks.length,
+    suggestions,
+  };
 }
 
 export type CommitItem = { title: string; description: string; category: RequestCategory; priority: RequestPriority; sender: string; sentAt?: string | null; excerpt: string };
 
-export async function commitWhatsApp(actor: Actor, input: { clientId: string; projectId: string; rawText: string; items: CommitItem[] }) {
+export async function commitWhatsApp(actor: Actor, input: { clientId: string; projectId: string; rawText: string; items: CommitItem[]; analysisMode?: string }) {
   assertInternal(actor);
   const project = await getProject(actor, input.projectId);
   if (project.clientId !== input.clientId) throw badRequest('Projeto não pertence ao cliente informado.');
   if (!input.items.length) throw badRequest('Selecione ao menos uma sugestão para registrar.');
   const [source] = await db.insert(schema.sourceMessages).values({
-    clientId: input.clientId, projectId: input.projectId, rawText: input.rawText, analysisMode: ANALYSIS_MODE, createdByLabel: actor.label,
+    clientId: input.clientId, projectId: input.projectId, rawText: input.rawText, analysisMode: input.analysisMode ?? ANALYSIS_MODE, createdByLabel: actor.label,
   }).returning();
   const created = [];
   for (const item of input.items) {
@@ -143,6 +167,6 @@ export async function commitWhatsApp(actor: Actor, input: { clientId: string; pr
     });
     created.push(request);
   }
-  await audit(actor, 'intake.whatsapp.commit', 'source_message', source.id, input.clientId, { created: created.length });
+  await audit(actor, 'intake.whatsapp.commit', 'source_message', source.id, input.clientId, { created: created.length, analysisMode: input.analysisMode ?? ANALYSIS_MODE });
   return { sourceMessageId: source.id, created };
 }

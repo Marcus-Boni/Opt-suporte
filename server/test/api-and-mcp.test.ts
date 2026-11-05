@@ -85,7 +85,7 @@ describe('API REST (D6)', () => {
     const preview = await api.inject({ method: 'POST', url: '/api/v1/intake/whatsapp-preview', headers: { cookie: admin }, payload: { clientId: cidadeId, projectId: project.id, text } });
     expect(preview.statusCode).toBe(200);
     const { mode, suggestions } = preview.json();
-    expect(mode).toBe('demo-deterministico');
+    expect(mode).toBe('heuristica'); // IA desligada nos testes: análise por regras
     expect(suggestions[0].ignored).toBeTruthy();
     expect(suggestions[1].category).toBe('problema');
     expect(suggestions[1].duplicateOf?.number).toBe(4);
