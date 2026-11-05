@@ -133,7 +133,8 @@ export async function analyzeBlocks(blocks: { index: number; text: string }[]): 
       : e.name === 'ZodError' || e.name === 'SyntaxError' ? 'resposta fora do formato esperado'
       : /timeout|timed out/i.test(e.message ?? '') ? 'tempo de resposta excedido'
       : 'serviço de IA indisponível';
-    console.warn(`[ia] captura caiu para heurística: ${reason} (${e.message ?? err})`);
+    // Só metadados no log: a mensagem do erro pode trazer trechos da conversa ou da resposta do modelo.
+    console.warn(`[ia] captura caiu para heurística: ${reason} (${[e.name, e.status, (err as { code?: string }).code].filter(Boolean).join(' ')})`);
     return { ok: false, reason };
   }
 }
