@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, Plus, Copy, ShieldCheck, Bot } from 'lucide-react';
+import { KeyRound, Plus, Copy, ShieldCheck, Bot, UserPlus } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/auth';
 import { ROLE, fmtDateTime, fmtRelative } from '@/lib/labels';
@@ -37,6 +37,16 @@ export function AccessPage() {
   const credBlocked = noClients && credRole !== 'admin_optsolv';
 
   const createUser = useMutation({ mutationFn: (b: Record<string, unknown>) => api.post('/users', b), onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); qc.invalidateQueries({ queryKey: ['audit'] }); setUserOpen(false); toast.ok('Usuário criado.'); }, onError: (e) => toast.bad(e.message) });
+  const [editing, setEditing] = useState<UserRow | null>(null);
+  const [draftRole, setDraftRole] = useState<Role>('colaborador_optsolv');
+  const [draftClients, setDraftClients] = useState<string[]>([]);
+  const openEdit = (u: UserRow) => { setEditing(u); setDraftRole(u.role); setDraftClients(u.clientIds); };
+  const saveAccess = useMutation({
+    mutationFn: () => api.patch(`/users/${editing!.id}`, { role: draftRole, ...(draftRole === 'colaborador_optsolv' ? { clientIds: draftClients } : {}) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); qc.invalidateQueries({ queryKey: ['audit'] }); toast.ok(`Acesso de ${editing?.name} atualizado.`); setEditing(null); },
+    onError: (e) => toast.bad(e.message),
+  });
+  const pending = (users.data ?? []).filter((u) => u.isActive && u.role === 'colaborador_optsolv' && !u.clientIds.length);
   const toggleUser = useMutation({ mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => api.patch(`/users/${id}`, { isActive }), onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }), onError: (e) => toast.bad(e.message) });
   const createCred = useMutation({ mutationFn: (b: Record<string, unknown>) => api.post<{ token: string }>('/credentials', b), onSuccess: (r) => { qc.invalidateQueries({ queryKey: ['credentials'] }); qc.invalidateQueries({ queryKey: ['audit'] }); setCredOpen(false); setToken(r.token); }, onError: (e) => toast.bad(e.message) });
   const revoke = useMutation({ mutationFn: (id: string) => api.del(`/credentials/${id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: ['credentials'] }); toast.ok('Credencial revogada.'); }, onError: (e) => toast.bad(e.message) });
@@ -50,14 +60,21 @@ export function AccessPage() {
 
       <Card className={cx(section, 'rise')}><CardContent className="p-5 md:p-6">
         <div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">Usuários</h2><Button size="sm" icon={<Plus />} onClick={() => { setWho({ name: '', email: '' }); setUserOpen(true); }}>Novo usuário</Button></div>
+        {pending.length > 0 && (
+          <div role="status" className="fade-in mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+            <UserPlus size={16} className="shrink-0 text-orange-700" />
+            <span className="min-w-0 flex-1"><b className="font-semibold">{pending.length === 1 ? '1 pessoa da equipe aguarda' : `${pending.length} pessoas da equipe aguardam`} liberação de clientes:</b> {pending.map((u) => u.name).join(', ')}.</span>
+            {pending.length === 1 && <Button size="sm" variant="secondary" onClick={() => openEdit(pending[0])}>Liberar acesso</Button>}
+          </div>
+        )}
         {users.isLoading ? <RowsSkeleton bare rows={4} code={false} /> : (
           <Table className="text-sm min-w-[640px]">
             <TableHeader><TableRow className="text-xs uppercase tracking-wide text-ink-4 hover:bg-transparent"><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Papel</TableHead><TableHead>Escopo</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>{users.data?.map((u) => (
               <TableRow key={u.id} className={cx(!u.isActive && 'opacity-50')}>
-                <TableCell className="font-semibold">{u.name}</TableCell><TableCell className="text-ink-3">{u.email}</TableCell><TableCell>{ROLE[u.role]}</TableCell>
+                <TableCell className="font-semibold"><span className="inline-flex items-center gap-2">{u.name}{u.microsoft && <Tip label="Entra com a conta Microsoft da Optsolv"><span><Badge tone="info">Microsoft</Badge></span></Tip>}</span></TableCell><TableCell className="text-ink-3">{u.email}</TableCell><TableCell>{ROLE[u.role]}</TableCell>
                 <TableCell className="text-ink-3">{u.role === 'admin_optsolv' ? 'todos os clientes' : u.clientIds.map(clientName).join(', ') || '—'}</TableCell>
-                <TableCell className="text-right">{u.id !== me.actor.id && <Button variant="link" size="sm" className="text-ink-4 px-0" onClick={() => (u.isActive ? setConfirm({ kind: 'user', id: u.id, name: u.name }) : toggleUser.mutate({ id: u.id, isActive: true }))}>{u.isActive ? 'Desativar' : 'Reativar'}</Button>}</TableCell>
+                <TableCell className="text-right whitespace-nowrap">{u.role !== 'cliente' && u.isActive && <Button variant="link" size="sm" className="mr-4 px-0" onClick={() => openEdit(u)}>Editar acesso</Button>}{u.id !== me.actor.id && <Button variant="link" size="sm" className="text-ink-4 px-0" onClick={() => (u.isActive ? setConfirm({ kind: 'user', id: u.id, name: u.name }) : toggleUser.mutate({ id: u.id, isActive: true }))}>{u.isActive ? 'Desativar' : 'Reativar'}</Button>}</TableCell>
               </TableRow>
             ))}</TableBody>
           </Table>
@@ -94,6 +111,27 @@ export function AccessPage() {
           ))}</ul>
         )}
       </CardContent></Card>
+
+      <Dialog open={!!editing} onClose={() => setEditing(null)} title={`Acesso de ${editing?.name ?? ''}`} description="Vale na próxima ação da pessoa, sem precisar sair e entrar de novo.">
+        <form className="grid gap-4" onSubmit={(e: FormEvent) => { e.preventDefault(); saveAccess.mutate(); }}>
+          <Field label="Papel" hint={editing?.id === me.actor.id ? 'Você não pode tirar o próprio papel de administrador.' : 'Administradores enxergam todos os clientes e gerenciam acessos.'}>
+            <SimpleSelect value={draftRole} onValueChange={(v) => setDraftRole(v as Role)} disabled={editing?.id === me.actor.id}
+              options={[{ value: 'colaborador_optsolv', label: ROLE.colaborador_optsolv }, { value: 'admin_optsolv', label: ROLE.admin_optsolv }]} />
+          </Field>
+          {draftRole === 'colaborador_optsolv' && (
+            <div>
+              <span className="label">Clientes liberados <span className="font-normal text-ink-4">({draftClients.length} de {me.clients.length})</span></span>
+              {noClients ? <p className="rounded-lg border border-dashed border-line-2 bg-paper-2/60 px-3.5 py-2.5 text-sm text-ink-4">Nenhum cliente cadastrado ainda.</p> : (
+                <div className="grid max-h-[260px] gap-2 overflow-y-auto pr-1">{me.clients.map((c) => (
+                  <Label key={c.id} className="flex items-center gap-2"><Checkbox checked={draftClients.includes(c.id)} onCheckedChange={(v) => setDraftClients((s) => (v === true ? [...s, c.id] : s.filter((x) => x !== c.id)))} />{c.name}</Label>
+                ))}</div>
+              )}
+              {!draftClients.length && <p className="mt-2 text-sm text-ink-4">Sem clientes, a pessoa entra mas não vê nenhum dado.</p>}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-1"><Button type="button" variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" loading={saveAccess.isPending}>Salvar acesso</Button></div>
+        </form>
+      </Dialog>
 
       <Dialog open={userOpen} onClose={() => setUserOpen(false)} title="Novo usuário">
         <form className="grid gap-4" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); createUser.mutate({ name: f.get('name'), email: f.get('email'), password: f.get('password'), role, clientId: role === 'cliente' ? f.get('clientId') : undefined, clientIds: role === 'colaborador_optsolv' ? f.getAll('clientIds') : undefined }); }}>

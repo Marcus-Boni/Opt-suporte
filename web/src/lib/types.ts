@@ -60,6 +60,6 @@ export type Suggestion = {
 /** `mode`: "heuristica" ou "ia:<implantação>"; `ai` diz qual modelo analisou ou por que caiu para as regras. */
 export type IntakePreview = { mode: string; ai: { model: string; promptVersion: string; ms: number; tokens: number } | { fallbackReason: string }; messageCount: number; suggestions: Suggestion[] };
 
-export type UserRow = { id: string; name: string; email: string; role: Role; clientId: string | null; isActive: boolean; createdAt: string; clientIds: string[] };
+export type UserRow = { id: string; name: string; email: string; role: Role; clientId: string | null; isActive: boolean; createdAt: string; clientIds: string[]; microsoft: boolean };
 export type Credential = { id: string; name: string; prefix: string; role: Role; clientId: string | null; clientName: string | null; lastUsedAt: string | null; revokedAt: string | null; createdAt: string };
 export type AuditRow = { id: string; actorLabel: string; actorKind: string; action: string; entityType: string; entityId: string | null; clientId: string | null; meta: Record<string, unknown> | null; createdAt: string };

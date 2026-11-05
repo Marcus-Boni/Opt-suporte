@@ -1,5 +1,6 @@
 import { Fragment, useState, type CSSProperties, type FormEvent } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { Avatar, Button, Field, Input, cx } from '@/components/ui';
@@ -17,6 +18,23 @@ const DEMO = [
 // Atalhos e senha das contas demo só em desenvolvimento ou em um ambiente de demonstração explícito (repositório público).
 const SHOW_DEMO = import.meta.env.DEV || import.meta.env.VITE_DEMO_LOGIN === 'true';
 
+/** Motivos devolvidos pelo servidor em /entrar?erro=… quando o login com a Microsoft não conclui. */
+const ENTRA_ERRORS: Record<string, string> = {
+  indisponivel: 'O login com a Microsoft não está disponível agora. Tente de novo em instantes.',
+  cancelado: 'Login com a Microsoft cancelado.',
+  consentimento: 'A Microsoft pediu a aprovação de um administrador da Optsolv para este aplicativo. Fale com a TI.',
+  tenant: 'Use a sua conta Microsoft da Optsolv.',
+  dominio: 'Só contas da Optsolv entram com a Microsoft. Clientes usam e-mail e senha.',
+  inativo: 'Seu acesso está desativado. Fale com um administrador.',
+  conta: 'Este e-mail já está vinculado a outra conta Microsoft. Fale com um administrador.',
+  sessao: 'O login demorou demais ou foi aberto em outra aba. Tente de novo.',
+  falha: 'Não foi possível concluir o login com a Microsoft. Tente de novo.',
+};
+
+function MicrosoftLogo() {
+  return <svg viewBox="0 0 21 21" aria-hidden className="size-5 shrink-0"><path fill="#F25022" d="M1 1h9v9H1z" /><path fill="#7FBA00" d="M11 1h9v9h-9z" /><path fill="#00A4EF" d="M1 11h9v9H1z" /><path fill="#FFB900" d="M11 11h9v9h-9z" /></svg>;
+}
+
 const HEADLINE = ['Do', 'pedido', 'no', 'WhatsApp', 'ao', 'resultado', 'apresentado.'];
 
 export function LoginPage() {
@@ -26,7 +44,10 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState(SHOW_DEMO ? 'optsolv2026' : '');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [sp] = useSearchParams();
+  const [error, setError] = useState<string | null>(() => ENTRA_ERRORS[sp.get('erro') ?? ''] ?? null);
+  const providers = useQuery({ queryKey: ['auth', 'providers'], queryFn: () => api.get<{ entra: boolean }>('/auth/providers'), staleTime: Infinity, retry: false });
+  const from = (loc.state as { from?: string } | null)?.from;
 
   if (!loading && me) return <Navigate to={isInternalRole(me.actor.role) ? '/app' : '/portal'} replace />;
 
@@ -37,7 +58,6 @@ export function LoginPage() {
       const res = await api.post<{ user: { role: string } }>('/auth/login', { email, password });
       await refresh();
       toast.ok('Sessão iniciada.');
-      const from = (loc.state as { from?: string } | null)?.from;
       nav(from && from !== '/entrar' ? from : isInternalRole(res.user.role) ? '/app' : '/portal', { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível entrar.');
@@ -68,6 +88,16 @@ export function LoginPage() {
         <form onSubmit={submit} className="w-full max-w-[400px] mx-auto rise" style={{ animationDelay: '160ms' }}>
           <h2 className="text-4xl font-semibold tracking-tight">Entrar</h2>
           <p className="mt-1 text-base text-ink-3">{SHOW_DEMO ? 'Use uma conta de demonstração ou digite seu e-mail.' : 'Use o e-mail e a senha do seu acesso.'}</p>
+          {providers.data?.entra && (
+            <>
+              <a href={`/api/v1/auth/entra/login?next=${encodeURIComponent(from && from !== '/entrar' ? from : '/app')}`}
+                className="pressable mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-line-2 bg-card text-md font-semibold text-ink shadow-card transition-colors hover:border-ink-5 hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF6B3D]">
+                <MicrosoftLogo />Entrar com a Microsoft
+              </a>
+              <p className="mt-2 text-center text-xs text-ink-4">Para a equipe Optsolv, com a sua conta corporativa.</p>
+              <div className="my-6 flex items-center gap-3 text-xs font-medium text-ink-4" role="separator"><span className="h-px flex-1 bg-line" />clientes: e-mail e senha<span className="h-px flex-1 bg-line" /></div>
+            </>
+          )}
           {SHOW_DEMO && <div className="mt-6 grid gap-2" role="group" aria-label="Contas de demonstração">
             {DEMO.map((d) => (
               <Button type="button" key={d.email} variant="secondary" onClick={() => setEmail(d.email)} aria-pressed={email === d.email}

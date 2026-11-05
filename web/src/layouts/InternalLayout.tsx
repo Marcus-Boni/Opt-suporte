@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router';
-import { LayoutDashboard, Building2, MessageSquareText, Inbox, PackageCheck, Presentation, KeyRound, LogOut, Menu, Search, PanelLeftClose, PanelLeftOpen, Blocks } from 'lucide-react';
+import { LayoutDashboard, Building2, MessageSquareText, Inbox, PackageCheck, Presentation, KeyRound, LogOut, Menu, Search, PanelLeftClose, PanelLeftOpen, Blocks, Hourglass } from 'lucide-react';
 import { CommandPalette, isMac } from '@/components/command-palette';
 import { ErrorBoundary } from '@/components/status-screens';
 import { Logo, Symbol } from '@/components/logo';
@@ -169,6 +169,12 @@ export function InternalLayout() {
           </div>
         </header>
         <main className="flex-1 px-4 md:px-8 py-6 md:py-8 max-w-[1280px] w-full mx-auto">
+          {me.actor.role === 'colaborador_optsolv' && Array.isArray(me.actor.clientIds) && me.actor.clientIds.length === 0 && (
+            <div role="status" className="rise mb-6 flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3.5 text-sm text-orange-900">
+              <Hourglass size={18} className="mt-0.5 shrink-0 text-orange-700" />
+              <span><b className="font-semibold">Seu acesso foi criado.</b> Um administrador precisa liberar os clientes que você atende (em Acessos e API). Até lá, as telas ficam vazias.</span>
+            </div>
+          )}
           <ErrorBoundary key={loc.pathname} inline><div className="page-enter"><Outlet /></div></ErrorBoundary>
         </main>
       </div>
