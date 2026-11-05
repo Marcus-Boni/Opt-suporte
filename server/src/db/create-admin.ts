@@ -1,7 +1,7 @@
 /**
  * Cria o primeiro administrador Optsolv num banco novo (o seed de demonstração não roda em banco real).
  *
- *   pnpm --filter server db:create-admin -- --email pessoa@optsolv.com.br --name "Nome Sobrenome"
+ *   pnpm --filter server db:create-admin --email pessoa@optsolv.com.br --name "Nome Sobrenome"
  *
  * A senha vem de ADMIN_PASSWORD (12+ caracteres) ou é gerada aqui e mostrada uma única vez.
  * Recusa se o e-mail já existir: o script não sobrescreve ninguém.
@@ -13,11 +13,12 @@ import { env } from '../env.js';
 import { describeDatabase } from './connection.js';
 import { hashPassword, randomToken } from '../auth/password.js';
 
-const { values } = parseArgs({ options: { email: { type: 'string' }, name: { type: 'string' } } });
+// O pnpm repassa o separador "--" literalmente ao script; ignorá-lo aceita as duas formas de chamar.
+const { values } = parseArgs({ args: process.argv.slice(2).filter((a) => a !== '--'), options: { email: { type: 'string' }, name: { type: 'string' } } });
 const email = values.email?.trim().toLowerCase();
 const name = values.name?.trim();
 if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !name) {
-  console.error('Uso: pnpm --filter server db:create-admin -- --email pessoa@empresa.com --name "Nome Sobrenome"');
+  console.error('Uso: pnpm --filter server db:create-admin --email pessoa@empresa.com --name "Nome Sobrenome"');
   process.exit(1);
 }
 const fromEnv = process.env.ADMIN_PASSWORD;

@@ -22,7 +22,7 @@ Some o `DB_POOL_MAX` de todas as instâncias e mantenha abaixo de `max_connectio
 pnpm db:migrate
 ```
 ```bash
-pnpm --filter server db:create-admin -- --email pessoa@optsolv.com.br --name "Nome Sobrenome"
+pnpm --filter server db:create-admin --email pessoa@optsolv.com.br --name "Nome Sobrenome"
 ```
 
 - `db:migrate` aplica as migrações dentro de um *advisory lock*: dois deploys simultâneos não migram ao mesmo tempo.
@@ -54,7 +54,7 @@ Sem storage externo por enquanto, os anexos ficam no próprio Postgres:
 
 ## Boas práticas no Azure (checklist)
 
-- **Papel de aplicação com menos privilégio.** Use o administrador do servidor só para migrações (`DATABASE_MIGRATION_URL`) e um papel próprio para a aplicação:
+- **Papel de aplicação com menos privilégio.** Hoje a aplicação conecta com o administrador do servidor. Quando quiser endurecer, crie um papel próprio para a aplicação e rode as migrações com o administrador:
 
   ```sql
   CREATE ROLE optsolv_app LOGIN PASSWORD '<senha forte>';
