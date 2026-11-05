@@ -13,6 +13,6 @@ export default defineConfig({
     // Os testes nunca tocam o banco de demonstração: usam um banco irmão "<base>_test", recriado a cada execução.
     env: { DATABASE_URL: base.replace(/\/[^/?]+(\?|$)/, '/optsolv_experience_test$1'), DATABASE_URL_BASE: base, NODE_ENV: 'test',
       // IA desligada por padrão nos testes (nunca chama o Foundry); os testes de IA ligam com um modelo simulado.
-      AZURE_OPENAI_ENDPOINT: '' },
+      AZURE_OPENAI_ENDPOINT: '', ENTRA_TENANT_ID: '', ENTRA_CLIENT_ID: '', ENTRA_CLIENT_SECRET: '', ENTRA_AUTHORITY: '', EMERGENCY_ADMIN_EMAILS: '', APP_URL: 'http://localhost:5173', ENTRA_REDIRECT_URI: 'http://localhost:4000/api/v1/auth/entra/callback' },
   },
 });

@@ -12,9 +12,10 @@ import { hashPassword, randomToken } from './password.js';
 import { actorFromUser, createSession } from './service.js';
 import { isEntraDomain } from './entra-config.js';
 
-export type EntraFlow = { verifier: string; state: string; nonce: string; next: string };
+/** `link`: id da pessoa logada com senha que pediu para vincular a conta Microsoft (vínculo explícito). */
+export type EntraFlow = { verifier: string; state: string; nonce: string; next: string; link?: string };
 /** Motivo de recusa, mostrado na tela de login (/entrar?erro=…). */
-export class EntraError extends Error { constructor(public reason: 'indisponivel' | 'tenant' | 'dominio' | 'inativo' | 'conta' | 'sessao' | 'falha') { super(reason); } }
+export class EntraError extends Error { constructor(public reason: 'indisponivel' | 'tenant' | 'convidado' | 'dominio' | 'inativo' | 'conta' | 'vincular' | 'sessao' | 'falha') { super(reason); } }
 
 let cached: { key: string; config: Promise<oidc.Configuration> } | undefined;
 function configuration() {
@@ -30,9 +31,9 @@ function configuration() {
   return cached.config;
 }
 
-export async function startEntraLogin(next: string) {
+export async function startEntraLogin(next: string, link?: string) {
   const config = await configuration().catch(() => { throw new EntraError('indisponivel'); });
-  const flow: EntraFlow = { verifier: oidc.randomPKCECodeVerifier(), state: oidc.randomState(), nonce: oidc.randomNonce(), next };
+  const flow: EntraFlow = { verifier: oidc.randomPKCECodeVerifier(), state: oidc.randomState(), nonce: oidc.randomNonce(), next, link };
   const url = oidc.buildAuthorizationUrl(config, {
     redirect_uri: env.ENTRA_REDIRECT_URI, scope: 'openid profile email', response_mode: 'query', prompt: 'select_account',
     code_challenge: await oidc.calculatePKCECodeChallenge(flow.verifier), code_challenge_method: 'S256', state: flow.state, nonce: flow.nonce,
@@ -52,6 +53,8 @@ export async function finishEntraLogin(callbackUrl: URL, flow: EntraFlow) {
     throw new EntraError('falha');
   }
   if (claims.tid !== env.ENTRA_TENANT_ID) throw new EntraError('tenant');
+  // Convidados (B2B) trazem `idp` do tenant de origem e UPN com #EXT#: o e-mail deles não é controlado pela Optsolv.
+  if ((typeof claims.idp === 'string' && claims.idp !== claims.iss) || String(claims.preferred_username ?? '').includes('#EXT#')) throw new EntraError('convidado');
   const email = String(claims.email ?? claims.preferred_username ?? '').toLowerCase().trim();
   if (!email.includes('@') || !isEntraDomain(email)) throw new EntraError('dominio');
   const oid = typeof claims.oid === 'string' ? claims.oid : '';
@@ -64,6 +67,10 @@ export async function finishEntraLogin(callbackUrl: URL, flow: EntraFlow) {
     // E-mail já vinculado a outra pessoa do Entra (ex.: endereço reaproveitado): não assume a conta antiga.
     if (byEmail?.entraOid) throw new EntraError('conta');
     if (byEmail) {
+      // Vínculo automático só para colaborador. Admin, cliente e admin de emergência só vinculam pelo fluxo explícito
+      // (logado com senha → "Vincular conta Microsoft"), para que um e-mail alterado no diretório não tome a conta.
+      const explicit = flow.link === byEmail.id;
+      if (!explicit && (byEmail.role !== 'colaborador_optsolv' || env.EMERGENCY_ADMIN_EMAILS.includes(byEmail.email))) throw new EntraError('vincular');
       [user] = await db.update(schema.users).set({ entraOid: oid }).where(eq(schema.users.id, byEmail.id)).returning();
       await audit(await actorFromUser(user), 'user.link_entra', 'user', user.id, null);
     } else {
@@ -72,6 +79,7 @@ export async function finishEntraLogin(callbackUrl: URL, flow: EntraFlow) {
       await audit(await actorFromUser(user), 'user.create', 'user', user.id, null, { via: 'entra', role: user.role });
     }
   }
+  if (flow.link && flow.link !== user.id) throw new EntraError('conta');
   if (!user.isActive) throw new EntraError('inativo');
   const session = await createSession(user);
   await audit(session.actor, 'auth.login', 'user', user.id, null, { via: 'entra' });

@@ -17,6 +17,7 @@ const ROLE_OPTIONS = Object.entries(ROLE).map(([value, label]) => ({ value, labe
 export function AccessPage() {
   const me = useMe();
   const qc = useQueryClient();
+  const providers = useQuery({ queryKey: ['auth', 'providers'], queryFn: () => api.get<{ entra: boolean }>('/auth/providers'), staleTime: Infinity, retry: false });
   const users = useQuery({ queryKey: ['users'], queryFn: () => api.get<UserRow[]>('/users') });
   const creds = useQuery({ queryKey: ['credentials'], queryFn: () => api.get<Credential[]>('/credentials') });
   const audit = useQuery({ queryKey: ['audit'], queryFn: () => api.get<AuditRow[]>('/audit?limit=40') });
@@ -57,6 +58,14 @@ export function AccessPage() {
   return (
     <div>
       <header className="rise mb-6 md:mb-8"><h1 className="text-4xl md:text-5xl font-semibold tracking-tight">Acessos e API</h1><p className="mt-2 text-md text-ink-3 max-w-[64ch]">Usuários do backoffice e do portal, credenciais para API/MCP e trilha de auditoria. A documentação OpenAPI está em <a className="link" href="/docs" target="_blank" rel="noreferrer">/docs</a>.</p></header>
+
+      {providers.data?.entra && me.user && !me.user.microsoft && (
+        <div className="rise mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-card px-5 py-4 shadow-card">
+          <ShieldCheck size={18} className="shrink-0 text-orange-700" />
+          <span className="min-w-0 flex-1 text-sm text-ink-3"><b className="font-semibold text-ink">Vincule sua conta Microsoft.</b> Depois disso você entra com a conta corporativa; a senha fica só para emergência.</span>
+          <a href="/api/v1/auth/entra/login?link=1&next=%2Fapp%2Facessos" className="pressable inline-flex h-9 items-center gap-2 rounded-lg border border-line-2 bg-card px-3.5 text-sm font-semibold text-ink transition-colors hover:border-ink-5 hover:bg-paper-2">Vincular conta Microsoft</a>
+        </div>
+      )}
 
       <Card className={cx(section, 'rise')}><CardContent className="p-5 md:p-6">
         <div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">Usuários</h2><Button size="sm" icon={<Plus />} onClick={() => { setWho({ name: '', email: '' }); setUserOpen(true); }}>Novo usuário</Button></div>

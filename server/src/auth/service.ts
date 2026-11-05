@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull, lt } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { HttpError, unauthorized } from '../lib/errors.js';
 import { env } from '../env.js';
@@ -75,7 +75,7 @@ export async function actorFromToken(token: string): Promise<Actor | null> {
 
 export async function userProfile(actor: Actor) {
   if (actor.kind !== 'user') return null;
-  const [u] = await db.select({ id: schema.users.id, email: schema.users.email, name: schema.users.name, role: schema.users.role, clientId: schema.users.clientId })
+  const [u] = await db.select({ id: schema.users.id, email: schema.users.email, name: schema.users.name, role: schema.users.role, clientId: schema.users.clientId, microsoft: isNotNull(schema.users.entraOid) })
     .from(schema.users).where(eq(schema.users.id, actor.id));
   return u ?? null;
 }

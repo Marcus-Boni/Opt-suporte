@@ -24,6 +24,8 @@ const ENTRA_ERRORS: Record<string, string> = {
   cancelado: 'Login com a Microsoft cancelado.',
   consentimento: 'A Microsoft pediu a aprovação de um administrador da Optsolv para este aplicativo. Fale com a TI.',
   tenant: 'Use a sua conta Microsoft da Optsolv.',
+  convidado: 'Contas convidadas de outras empresas não entram por aqui. Use a sua conta da Optsolv.',
+  vincular: 'Esta conta já existe com senha. Entre com e-mail e senha e use “Vincular conta Microsoft” em Acessos e API.',
   dominio: 'Só contas da Optsolv entram com a Microsoft. Clientes usam e-mail e senha.',
   inativo: 'Seu acesso está desativado. Fale com um administrador.',
   conta: 'Este e-mail já está vinculado a outra conta Microsoft. Fale com um administrador.',

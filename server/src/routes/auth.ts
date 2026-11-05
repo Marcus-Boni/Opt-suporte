@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { login, logout, userProfile } from '../auth/service.js';
+import { actorFromSession, login, logout, userProfile } from '../auth/service.js';
 import { listClients } from '../services/clients.js';
 import { SESSION_COOKIE } from '../app.js';
 import { env } from '../env.js';
@@ -43,11 +43,19 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.get('/auth/entra/login', {
     config: { public: true },
-    schema: { tags: ['auth'], security: [], description: 'Inicia o login da equipe com a Microsoft (redireciona para o Entra ID).', querystring: z.object({ next: z.string().max(300).optional() }) },
+    schema: { tags: ['auth'], security: [], description: 'Inicia o login da equipe com a Microsoft (redireciona para o Entra ID). Com `link=1` e sessão aberta, vincula a conta Microsoft à pessoa logada.', querystring: z.object({ next: z.string().max(300).optional(), link: z.literal('1').optional() }) },
   }, async (request, reply) => {
     if (!entraEnabled()) return reply.redirect(toLogin('indisponivel'));
     try {
-      const { url, flow } = await startEntraLogin(safeNext(request.query.next));
+      let link: string | undefined;
+      if (request.query.link) {
+        const raw = request.cookies[SESSION_COOKIE];
+        const unsigned = raw ? request.unsignCookie(raw) : null;
+        const actor = unsigned?.valid && unsigned.value ? await actorFromSession(unsigned.value) : null;
+        if (!actor) return reply.redirect(toLogin('sessao'));
+        link = actor.id;
+      }
+      const { url, flow } = await startEntraLogin(safeNext(request.query.next), link);
       reply.setCookie(FLOW_COOKIE, JSON.stringify(flow), flowCookieOpts);
       return reply.redirect(url);
     } catch (e) {

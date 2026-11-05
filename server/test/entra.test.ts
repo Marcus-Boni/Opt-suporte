@@ -13,7 +13,7 @@ import { env } from '../src/env.js';
 
 const TENANT = '11111111-2222-3333-4444-555555555555';
 const CLIENT_ID = 'app-optsolv-suporte';
-type Person = { oid: string; email: string; name: string; tid?: string };
+type Person = { oid: string; email: string; name: string; tid?: string; extra?: Record<string, string> };
 
 let api: Awaited<ReturnType<typeof app>>;
 let admin: string;
@@ -38,7 +38,7 @@ beforeAll(async () => {
     if (!hit || hit.challenge !== challenge || b.client_id !== CLIENT_ID || b.client_secret !== 'segredo') return reply.status(400).send({ error: 'invalid_grant' });
     codes.delete(b.code);
     const { person } = hit;
-    const idToken = await new SignJWT({ oid: person.oid, tid: person.tid ?? TENANT, email: person.email, preferred_username: person.email, name: person.name, nonce: hit.nonce })
+    const idToken = await new SignJWT({ oid: person.oid, tid: person.tid ?? TENANT, email: person.email, preferred_username: person.email, name: person.name, nonce: hit.nonce, ...person.extra })
       .setProtectedHeader({ alg: 'RS256', kid: 'k1' }).setIssuer(`${base}/tenant/v2.0`).setAudience(CLIENT_ID).setSubject(`sub-${person.oid}`)
       .setIssuedAt().setExpirationTime('5m').sign(privateKey);
     return { access_token: 'at', token_type: 'Bearer', expires_in: 300, id_token: idToken };
@@ -55,8 +55,9 @@ function enableEntra() {
 }
 
 /** Ida até a Microsoft e volta: a "Microsoft" autentica `person` e devolve o código ao callback. */
-async function signIn(person: Person, opts: { next?: string; tamperState?: boolean; dropCookie?: boolean } = {}) {
-  const start = await api.inject({ method: 'GET', url: `/api/v1/auth/entra/login${opts.next ? `?next=${encodeURIComponent(opts.next)}` : ''}` });
+async function signIn(person: Person, opts: { next?: string; tamperState?: boolean; dropCookie?: boolean; linkAs?: string } = {}) {
+  const q = new URLSearchParams({ ...(opts.next ? { next: opts.next } : {}), ...(opts.linkAs ? { link: '1' } : {}) }).toString();
+  const start = await api.inject({ method: 'GET', url: `/api/v1/auth/entra/login${q ? `?${q}` : ''}`, headers: opts.linkAs ? { cookie: opts.linkAs } : {} });
   expect(start.statusCode).toBe(302);
   const authorize = new URL(start.headers.location as string);
   expect(authorize.origin + authorize.pathname).toBe(`${base}/authorize`);
@@ -95,17 +96,30 @@ describe('login com Microsoft Entra ID', () => {
     expect(await db.select().from(schema.users).where(eq(schema.users.email, p.email))).toHaveLength(1);
   });
 
-  it('conta existente é reconhecida pelo e-mail e mantém o papel (admin continua admin)', async () => {
+  it('colaborador existente é vinculado pelo e-mail; admin só pelo vínculo explícito, logado com senha', async () => {
     enableEntra();
     env.ENTRA_ALLOWED_DOMAINS.push('optsolv.demo');
-    const { cookie } = await signIn(person({ email: 'admin@optsolv.demo', name: 'Helena (Entra)' }));
-    expect((await me(cookie!)).actor).toMatchObject({ role: 'admin_optsolv', clientIds: 'all', label: 'Helena Prado' });
+    const ana = await signIn(person({ email: 'ana@optsolv.demo' }));
+    expect((await me(ana.cookie!)).actor).toMatchObject({ role: 'colaborador_optsolv', label: 'Ana Ribeiro' });
+
+    // Admin não é vinculado sozinho: um e-mail alterado no diretório não pode tomar a conta.
+    const helena = person({ email: 'admin@optsolv.demo', name: 'Helena (Entra)' });
+    expect((await signIn(helena)).location).toBe('http://localhost:5173/entrar?erro=vincular');
+    // Vínculo explícito: logada com senha, pede para vincular; outra pessoa da Microsoft não serve.
+    expect((await signIn(person({ email: 'outra@optsolv.demo' }), { linkAs: admin })).location).toBe('http://localhost:5173/entrar?erro=conta');
+    const linked = await signIn(helena, { linkAs: admin, next: '/app/acessos' });
+    expect(linked.location).toBe('http://localhost:5173/app/acessos');
+    expect((await me(linked.cookie!)).actor).toMatchObject({ role: 'admin_optsolv', clientIds: 'all', label: 'Helena Prado' });
+    expect((await me(linked.cookie!)).user.microsoft).toBe(true);
+    expect((await signIn(helena)).cookie).toBeTruthy(); // depois do vínculo, entra direto
   });
 
   it('recusa outro tenant, outro domínio, conta desativada e e-mail já vinculado a outra pessoa', async () => {
     enableEntra();
     expect((await signIn(person({ tid: 'outro-tenant' }))).location).toBe('http://localhost:5173/entrar?erro=tenant');
     expect((await signIn(person({ email: 'alguem@gmail.com' }))).location).toBe('http://localhost:5173/entrar?erro=dominio');
+    const guest = person({ extra: { idp: 'https://sts.windows.net/outro-tenant/', preferred_username: 'x_gmail.com#EXT#@optsolv.onmicrosoft.com' } });
+    expect((await signIn(guest)).location).toBe('http://localhost:5173/entrar?erro=convidado');
 
     const p = person();
     await signIn(p);

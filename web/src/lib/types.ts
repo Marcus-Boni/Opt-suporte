@@ -10,7 +10,7 @@ export type EvidenceKind = 'observado' | 'esperado' | 'medido';
 
 export type Me = {
   actor: { kind: 'user' | 'credential'; id: string; label: string; role: Role; clientIds: 'all' | string[] };
-  user: { id: string; email: string; name: string; role: Role; clientId: string | null } | null;
+  user: { id: string; email: string; name: string; role: Role; clientId: string | null; microsoft: boolean } | null;
   clients: Client[];
 };
 

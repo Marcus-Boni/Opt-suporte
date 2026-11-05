@@ -9,14 +9,15 @@ A equipe Optsolv entra com a conta corporativa da Microsoft. Clientes do portal 
 3. O servidor troca o código pelo ID token com a biblioteca `openid-client`, que valida assinatura (chaves públicas do tenant), emissor, audiência, validade, `nonce` e `state`. O navegador nunca vê tokens.
 4. Regras da plataforma:
    - só o tenant `ENTRA_TENANT_ID` e e-mails dos domínios `ENTRA_ALLOWED_DOMAINS` (padrão `optsolv.com.br`);
-   - a pessoa é vinculada pelo `oid` (identificador imutável do Entra); no primeiro acesso, o vínculo é feito pelo e-mail se a conta já existir (o papel é mantido);
+   - convidados (B2B) de outros tenants são recusados (claim `idp` de outro emissor ou UPN com `#EXT#`);
+   - a pessoa é vinculada pelo `oid` (identificador imutável do Entra). Conta existente de **colaborador** é vinculada pelo e-mail no primeiro acesso. Contas de **admin, cliente ou admin de emergência nunca são vinculadas sozinhas** (evita que um e-mail alterado no diretório tome a conta): a pessoa entra com a senha e usa **Vincular conta Microsoft** em Acessos e API (`/auth/entra/login?link=1` com a sessão aberta);
    - quem não existe vira **colaborador sem clientes** (menor privilégio). Um admin libera os clientes e, se for o caso, promove a admin em **Acessos e API → Editar acesso**;
    - conta desativada na plataforma não entra; conta desativada ou removida no Entra não consegue autenticar.
 5. A sessão é a mesma do login por senha (cookie `osx_session`, 7 dias, revogável ao desativar a pessoa).
 
 Com o Entra configurado, e-mails desses domínios **não entram com senha** (`403 use_microsoft`), exceto os listados em `EMERGENCY_ADMIN_EMAILS` (acesso de emergência, se a Microsoft estiver fora do ar).
 
-Recusas voltam para `/entrar?erro=<motivo>` (`tenant`, `dominio`, `inativo`, `conta`, `sessao`, `consentimento`, `cancelado`, `indisponivel`, `falha`) com mensagem em português. Toda entrada, criação e vínculo fica na auditoria.
+Recusas voltam para `/entrar?erro=<motivo>` (`tenant`, `convidado`, `dominio`, `inativo`, `conta`, `vincular`, `sessao`, `consentimento`, `cancelado`, `indisponivel`, `falha`) com mensagem em português. Toda entrada, criação e vínculo fica na auditoria.
 
 ## Registro do app no Entra
 
