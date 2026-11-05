@@ -50,7 +50,7 @@ export function NewDeliveryPage() {
   const [selected, setSelected] = useState<string[]>(preset ? [preset] : []);
   useEffect(() => { if (presetReq.data) { setClientId(presetReq.data.clientId); setProjectId(presetReq.data.projectId); } }, [presetReq.data]);
   const projects = useQuery({ queryKey: ['projects', clientId], queryFn: () => api.get<Project[]>(`/projects${qs({ clientId })}`), enabled: !!clientId });
-  useEffect(() => { if (projects.data?.length && !projects.data.some((p) => p.id === projectId)) setProjectId(projects.data[0].id); }, [projects.data, projectId]);
+  useEffect(() => { if (projects.data && !projects.data.some((p) => p.id === projectId)) setProjectId(projects.data[0]?.id ?? ''); }, [projects.data, projectId]);
   const create = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post<DeliveryDetail>('/deliveries', body),
     onSuccess: (d) => { setScoped(clientId); toast.ok('Entrega registrada como rascunho.'); nav(`/app/entregas/${d.id}`); },
@@ -62,11 +62,11 @@ export function NewDeliveryPage() {
       <form className="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); create.mutate({ projectId, title: f.get('title'), summary: f.get('summary'), details: String(f.get('details') || '') || undefined, deliveredAt: fromInputDate(String(f.get('deliveredAt'))).toISOString(), requestIds: selected }); }}>
         <Card className="rise ring-0 shadow-card rounded-2xl py-0"><CardContent className="p-5 md:p-6 grid gap-4">
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="Cliente"><SimpleSelect value={clientId} onValueChange={(v) => { setClientId(v); setSelected([]); }} options={me.clients.map((c) => ({ value: c.id, label: c.name }))} /></Field>
-            <Field label="Projeto"><SimpleSelect value={projectId} onValueChange={setProjectId} options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name }))} placeholder="Escolha o projeto" /></Field>
+            <Field label="Cliente"><SimpleSelect value={clientId} onValueChange={(v) => { setClientId(v); setSelected([]); }} options={me.clients.map((c) => ({ value: c.id, label: c.name }))} placeholder="Escolha o cliente" empty="Nenhum cliente cadastrado" emptyAction={me.actor.role === 'admin_optsolv' && <Link to="/app/clientes" className="link">Cadastrar</Link>} /></Field>
+            <Field label="Projeto"><SimpleSelect value={projectId} onValueChange={setProjectId} options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name }))} placeholder="Escolha o projeto" loading={!!clientId && projects.isLoading} empty={clientId ? 'Nenhum projeto' : 'Escolha o cliente'} emptyAction={!!clientId && <Link to={`/app/clientes/${clientId}`} className="link">Criar</Link>} /></Field>
           </div>
           <Field label="Nome da entrega"><Input name="title" required minLength={2} maxLength={140} placeholder="Ex.: Busca e ordenação de visitas" autoFocus /></Field>
-          <Field label="Resumo para o cliente" hint="Uma ou duas frases, sem jargão técnico."><Textarea name="summary" required minLength={5} rows={3} /></Field>
+          <Field label="Resumo para o cliente" hint="Uma ou duas frases, sem jargão técnico."><Textarea name="summary" required minLength={5} rows={3} placeholder="Ex.: Agora dá para buscar visitas por obra e ordenar pela data." /></Field>
           <Field label="Detalhes (opcional)"><Textarea name="details" rows={5} placeholder="Como foi feito, limitações, o que muda no dia a dia." /></Field>
           <Field label="Data da entrega"><DatePicker name="deliveredAt" required defaultValue={new Date()} className="sm:w-60" /></Field>
           <div className="flex items-center gap-2 pt-1"><Button type="submit" loading={create.isPending} disabled={!projectId}>Salvar rascunho</Button><Button type="button" variant="ghost" onClick={() => nav(-1)}>Cancelar</Button></div>

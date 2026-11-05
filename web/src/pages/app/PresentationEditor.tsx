@@ -83,8 +83,8 @@ export function PresentationEditorPage() {
 
         <aside className="card p-4 grid gap-4 lg:sticky lg:top-20">
           <div><h2 className="text-base font-semibold">Narrativa deste slide</h2><p className="text-xs text-ink-4">Título e texto são editáveis; números e listas vêm do banco e não mudam aqui.</p></div>
-          <Field label="Título"><Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} /></Field>
-          <Field label="Texto"><Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} /></Field>
+          <Field label="Título"><Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} placeholder="Título do slide" /></Field>
+          <Field label="Texto"><Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} placeholder="Texto do slide, em linguagem simples." /></Field>
           <div className="flex gap-2"><Button size="sm" disabled={!dirty} loading={save.isPending} onClick={() => save.mutate({ slides: [{ id: slide.id, title, body }] }, { onSuccess: () => setDrafts((d) => { const n = { ...d }; delete n[slide.id]; return n; }) })}>Salvar texto</Button>{dirty && <Button size="sm" variant="ghost" onClick={() => { setTitle(slide.title); setBody(slide.body); }}>Desfazer</Button>}</div>
           {slide.refs?.length ? (
             <div className="border-t border-line pt-3">

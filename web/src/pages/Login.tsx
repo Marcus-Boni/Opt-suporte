@@ -79,7 +79,7 @@ export function LoginPage() {
           </div>}
           <div className="mt-5 grid gap-4">
             <Field label="E-mail"><Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com" /></Field>
-            <Field label="Senha" hint={SHOW_DEMO ? 'Senha das contas de demonstração: optsolv2026' : undefined}><Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+            <Field label="Senha" hint={SHOW_DEMO ? 'Senha das contas de demonstração: optsolv2026' : undefined}><Input type="password" autoComplete="current-password" required placeholder="Sua senha" value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
           </div>
           {error && <p role="alert" className="mt-4 text-base text-bad bg-bad-soft rounded-lg px-3.5 py-2.5">{error}</p>}
           <Button type="submit" size="lg" loading={busy} className="mt-6 w-full" icon={<ArrowRight />}>Entrar</Button>

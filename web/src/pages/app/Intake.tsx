@@ -31,7 +31,7 @@ export function IntakePage() {
   const [analysis, setAnalysis] = useState<Pick<IntakePreview, 'mode' | 'ai'> | null>(null);
   const [done, setDone] = useState<RequestRow[] | null>(null);
   const projects = useQuery({ queryKey: ['projects', clientId], queryFn: () => api.get<Project[]>(`/projects${qs({ clientId })}`), enabled: !!clientId });
-  useEffect(() => { if (projects.data?.length && !projects.data.some((p) => p.id === projectId)) setProjectId(projects.data[0].id); }, [projects.data, projectId]);
+  useEffect(() => { if (projects.data && !projects.data.some((p) => p.id === projectId)) setProjectId(projects.data[0]?.id ?? ''); }, [projects.data, projectId]);
 
   const preview = useMutation({
     mutationFn: () => api.post<IntakePreview>('/intake/whatsapp-preview', { clientId, projectId: projectId || undefined, text }),
@@ -56,8 +56,8 @@ export function IntakePage() {
         <Card className="rise ring-0 shadow-card rounded-2xl py-0">
           <CardContent className="p-5 md:p-6">
             <div className="grid sm:grid-cols-2 gap-3">
-              <Field label="Cliente"><SimpleSelect value={clientId} onValueChange={(v) => { setClientId(v); setDrafts(null); }} options={me.clients.map((c) => ({ value: c.id, label: c.name }))} /></Field>
-              <Field label="Projeto"><SimpleSelect value={projectId} onValueChange={setProjectId} disabled={!projects.data?.length} placeholder="Sem projetos" options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name }))} /></Field>
+              <Field label="Cliente"><SimpleSelect value={clientId} onValueChange={(v) => { setClientId(v); setDrafts(null); }} options={me.clients.map((c) => ({ value: c.id, label: c.name }))} placeholder="Escolha o cliente" empty="Nenhum cliente cadastrado" emptyAction={me.actor.role === 'admin_optsolv' && <Link to="/app/clientes" className="link">Cadastrar</Link>} /></Field>
+              <Field label="Projeto"><SimpleSelect value={projectId} onValueChange={setProjectId} options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name }))} placeholder="Escolha o projeto" loading={!!clientId && projects.isLoading} empty={clientId ? 'Nenhum projeto' : 'Escolha o cliente'} emptyAction={!!clientId && <Link to={`/app/clientes/${clientId}`} className="link">Criar</Link>} /></Field>
             </div>
             <Field label="Mensagens copiadas" className="mt-4" hint="Formatos aceitos: “[dd/mm/aaaa, hh:mm:ss] Nome: texto” ou “dd/mm/aaaa hh:mm - Nome: texto”.">
               <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={SAMPLE.split('\n').slice(0, 2).join('\n') + '\n…'} className="font-mono text-sm leading-relaxed min-h-[280px]" />
@@ -100,7 +100,7 @@ export function IntakePage() {
                             <div className="mt-3 grid gap-3">
                               {d.duplicateOf && <div className="flex items-start gap-2 rounded-lg bg-warn-soft text-warn px-3 py-2 text-sm"><AlertTriangle size={15} className="mt-0.5 shrink-0" /><span>Possível repetida de <Link className="font-semibold underline" to={`/app/solicitacoes/${d.duplicateOf.requestId}`}>#{d.duplicateOf.number} {d.duplicateOf.title}</Link> ({Math.round(d.duplicateOf.score * 100)}% de termos em comum). Desmarcada por padrão.</span></div>}
                               {d.similarTo && <div className="text-sm text-ink-3">Parecida com a sugestão {d.similarTo.index + 1} ({Math.round(d.similarTo.score * 100)}%).</div>}
-                              <Field label="Título"><Input value={d.title} onChange={(e) => update(d.index, { title: e.target.value })} /></Field>
+                              <Field label="Título"><Input value={d.title} onChange={(e) => update(d.index, { title: e.target.value })} placeholder="Resumo curto da solicitação" /></Field>
                               <div className="grid grid-cols-2 gap-3">
                                 <Field label="Categoria"><SimpleSelect value={d.category} onValueChange={(v) => update(d.index, { category: v as RequestCategory })} options={CATEGORY_OPTIONS} /></Field>
                                 <Field label="Prioridade"><SimpleSelect value={d.priority} onValueChange={(v) => update(d.index, { priority: v as RequestPriority })} options={PRIORITY_OPTIONS} /></Field>

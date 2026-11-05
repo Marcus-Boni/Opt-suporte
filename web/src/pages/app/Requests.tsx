@@ -61,7 +61,7 @@ export function RequestsPage() {
         {more && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-paper-2 p-2">
             <div className="w-full sm:w-[200px]"><SimpleSelect size="sm" aria-label="Status detalhado" value={fineStatus} onValueChange={(v) => set('status', v || OPEN)} options={[{ value: '', label: 'Qualquer status' }, ...STATUS_ORDER.map((s) => ({ value: s, label: statusLabel(s, true) }))]} /></div>
-            <div className="w-full sm:w-[220px]"><SimpleSelect size="sm" aria-label="Projeto" value={projectId} onValueChange={(v) => set('projectId', v)} options={[{ value: '', label: 'Todos os projetos' }, ...(projects.data ?? []).map((p) => ({ value: p.id, label: clientId ? p.name : `${p.clientName} · ${p.name}` }))]} /></div>
+            <div className="w-full sm:w-[220px]"><SimpleSelect size="sm" aria-label="Projeto" loading={projects.isLoading} value={projectId} onValueChange={(v) => set('projectId', v)} options={[{ value: '', label: 'Todos os projetos' }, ...(projects.data ?? []).map((p) => ({ value: p.id, label: clientId ? p.name : `${p.clientName} · ${p.name}` }))]} /></div>
             <div className="w-full sm:w-[170px]"><SimpleSelect size="sm" aria-label="Categoria" value={category} onValueChange={(v) => set('category', v)} options={[{ value: '', label: 'Toda categoria' }, ...CATEGORY_OPTIONS]} /></div>
             {(activeCount > 0 || search || unassigned) && <Button variant="ghost" size="sm" onClick={clearAll}>Limpar filtros</Button>}
           </div>
@@ -119,11 +119,11 @@ export function NewRequestDialog({ open, onClose, projects, clients, defaultClie
       <form className="grid gap-4" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); create.mutate({ projectId: pid, title: String(f.get('title') || '') || undefined, description: f.get('description'), category: f.get('category'), priority: f.get('priority'), source: 'admin' }); }}>
         {error && <p role="alert" className="text-sm text-bad bg-bad-soft rounded-md px-3 py-2">{error}</p>}
         <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="Cliente"><SimpleSelect value={cid} onValueChange={setCid} options={clients.map((c) => ({ value: c.id, label: c.name }))} /></Field>
-          <Field label="Projeto"><SimpleSelect value={pid} onValueChange={setPid} options={list.map((p) => ({ value: p.id, label: p.name }))} placeholder="Escolha o projeto" /></Field>
+          <Field label="Cliente"><SimpleSelect value={cid} onValueChange={setCid} options={clients.map((c) => ({ value: c.id, label: c.name }))} placeholder="Escolha o cliente" empty="Nenhum cliente cadastrado" /></Field>
+          <Field label="Projeto"><SimpleSelect value={pid} onValueChange={setPid} options={list.map((p) => ({ value: p.id, label: p.name }))} placeholder="Escolha o projeto" empty={cid ? 'Nenhum projeto' : 'Escolha o cliente'} emptyAction={!!cid && <Link to={`/app/clientes/${cid}`} className="link" onClick={onClose}>Criar</Link>} /></Field>
         </div>
         <Field label="Descrição" hint="O título é gerado a partir da primeira frase se ficar em branco."><Textarea name="description" required minLength={5} rows={4} autoFocus placeholder="O que precisa ser feito, onde acontece e qual o impacto." /></Field>
-        <Field label="Título (opcional)"><Input name="title" maxLength={140} /></Field>
+        <Field label="Título (opcional)"><Input name="title" maxLength={140} placeholder="Gerado a partir da descrição" /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Categoria"><SimpleSelect name="category" defaultValue="melhoria" options={CATEGORY_OPTIONS} /></Field>
           <Field label="Prioridade"><SimpleSelect name="priority" defaultValue="media" options={PRIORITY_OPTIONS} /></Field>

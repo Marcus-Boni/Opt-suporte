@@ -72,7 +72,7 @@ export function PortalRequestDetailPage() {
       </div>
       <Dialog open={reopen} onClose={() => setReopen(false)} title="Reabrir solicitação">
         <form className="grid gap-4" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); reopenM.mutate(String(new FormData(e.currentTarget).get('reason'))); }}>
-          <Field label="Conte o motivo" hint="Isso fica registrado no histórico e ajuda a equipe a retomar."><Textarea name="reason" required minLength={3} autoFocus /></Field>
+          <Field label="Conte o motivo" hint="Isso fica registrado no histórico e ajuda a equipe a retomar."><Textarea name="reason" required minLength={3} autoFocus placeholder="O que ainda não está resolvido?" /></Field>
           <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setReopen(false)}>Cancelar</Button><Button type="submit" loading={reopenM.isPending}>Reabrir</Button></div>
         </form>
       </Dialog>

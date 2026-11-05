@@ -63,8 +63,8 @@ export function RequestDetailPage() {
             <div className="flex flex-wrap items-center gap-2 mb-2"><StatusPill status={r.status} /><Badge tone="neutral">{CATEGORY[r.category]}</Badge><PriorityMark priority={r.priority} withLabel /><span className="inline-flex items-center gap-1 text-xs text-ink-4"><SourceIcon source={r.source} />{SOURCE[r.source]}</span></div>
             {editing ? (
               <form className="grid gap-3" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); update.mutate({ title: f.get('title'), description: f.get('description') }); }}>
-                <Input name="title" defaultValue={r.title} className="h-12 text-3xl font-semibold" maxLength={140} aria-label="Título" />
-                <Textarea name="description" defaultValue={r.description} rows={6} aria-label="Descrição" />
+                <Input name="title" defaultValue={r.title} className="h-12 text-3xl font-semibold" maxLength={140} aria-label="Título" placeholder="Título da solicitação" />
+                <Textarea name="description" defaultValue={r.description} rows={6} aria-label="Descrição" placeholder="O que precisa ser feito, onde acontece e qual o impacto." />
                 <div className="flex gap-2"><Button type="submit" size="sm" loading={update.isPending}>Salvar</Button><Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button></div>
               </form>
             ) : (
@@ -78,7 +78,7 @@ export function RequestDetailPage() {
             {/* No celular a triagem (decidir status e dono) vem logo abaixo do título; no desktop fica na coluna lateral. */}
             <div className="lg:hidden mt-4 grid grid-cols-2 gap-3 rounded-xl bg-paper-2 p-3">
               <Field label="Status"><SimpleSelect size="sm" value={r.status} onValueChange={(v) => changeStatus(v as RequestStatus)} options={STATUS_OPTIONS} /></Field>
-              <Field label="Responsável"><SimpleSelect size="sm" value={r.assigneeUserId ?? ''} onValueChange={(v) => update.mutate({ assigneeUserId: v || null })} options={[{ value: '', label: 'Sem responsável' }, ...(team.data ?? []).map((t) => ({ value: t.id, label: t.name }))]} /></Field>
+              <Field label="Responsável"><SimpleSelect size="sm" value={r.assigneeUserId ?? ''} onValueChange={(v) => update.mutate({ assigneeUserId: v || null })} loading={team.isLoading} options={[{ value: '', label: 'Sem responsável' }, ...(team.data ?? []).map((t) => ({ value: t.id, label: t.name }))]} /></Field>
             </div>
           </header>
 
@@ -121,7 +121,7 @@ export function RequestDetailPage() {
           <Card className="ring-0 shadow-card rounded-2xl py-0"><CardContent className="p-4 grid gap-3">
             <div className="hidden lg:grid gap-3">
               <Field label="Status"><SimpleSelect value={r.status} onValueChange={(v) => changeStatus(v as RequestStatus)} options={STATUS_OPTIONS} /></Field>
-              <Field label="Responsável"><SimpleSelect value={r.assigneeUserId ?? ''} onValueChange={(v) => update.mutate({ assigneeUserId: v || null })} options={[{ value: '', label: 'Sem responsável' }, ...(team.data ?? []).map((t) => ({ value: t.id, label: t.name }))]} /></Field>
+              <Field label="Responsável"><SimpleSelect value={r.assigneeUserId ?? ''} onValueChange={(v) => update.mutate({ assigneeUserId: v || null })} loading={team.isLoading} options={[{ value: '', label: 'Sem responsável' }, ...(team.data ?? []).map((t) => ({ value: t.id, label: t.name }))]} /></Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Categoria"><SimpleSelect value={r.category} onValueChange={(v) => update.mutate({ category: v })} options={CATEGORY_OPTIONS} /></Field>
@@ -147,7 +147,7 @@ export function RequestDetailPage() {
         <form className="grid gap-4" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); update.mutate({ status: reopen, reason: new FormData(e.currentTarget).get('reason') }); }}>
           <p className="text-base text-ink-3">A solicitação está {statusLabel(r.status, true).toLowerCase()}. Para voltar a <strong>{reopen && statusLabel(reopen, true)}</strong>, informe o motivo; ele fica no histórico visível ao cliente.</p>
           {updateError && <p role="alert" className="text-sm text-bad bg-bad-soft rounded-md px-3 py-2">{updateError}</p>}
-          <Field label="Motivo"><Textarea name="reason" required minLength={3} autoFocus /></Field>
+          <Field label="Motivo"><Textarea name="reason" required minLength={3} autoFocus placeholder="Por que a solicitação volta a ficar aberta?" /></Field>
           <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setReopen(null)}>Cancelar</Button><Button type="submit" loading={update.isPending}>Reabrir</Button></div>
         </form>
       </Dialog>

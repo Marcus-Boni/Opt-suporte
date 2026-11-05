@@ -124,7 +124,7 @@ export function ClientDetailPage() {
         <form onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); createProject.mutate({ name: String(f.get('name')), code: String(f.get('code') || '') || undefined, description: String(f.get('description') || '') || undefined }); }} className="grid gap-4">
           <Field label="Nome do projeto"><Input name="name" required minLength={2} placeholder="Ex.: Portal de Fornecedores" autoFocus /></Field>
           <Field label="Código" hint="Curto, sem espaços"><Input name="code" maxLength={12} placeholder="FORNEC" className="uppercase font-mono" /></Field>
-          <Field label="Descrição"><Textarea name="description" /></Field>
+          <Field label="Descrição"><Textarea name="description" placeholder="O que o sistema faz e quem usa." /></Field>
           <div className="flex justify-end gap-2 pt-1"><Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={createProject.isPending}>Criar projeto</Button></div>
         </form>
       </Dialog>

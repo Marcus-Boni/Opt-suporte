@@ -68,8 +68,8 @@ export function PortalNewRequestPage() {
             <span className="label">Tipo</span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-label="Tipo">{(Object.keys(CATEGORY) as RequestCategory[]).map((k) => <Chip key={k} active={category === k} onClick={() => setCategory(k)} className="h-10 rounded-lg">{CATEGORY[k]}</Chip>)}</div>
           </div>
-          <Field label="Sistema ou projeto"><SimpleSelect value={effectiveProject} onValueChange={setProjectId} options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name }))} placeholder="Carregando…" /></Field>
-          <Field label="Título (opcional)" hint="Se deixar em branco, usamos a primeira frase."><Input name="title" maxLength={140} /></Field>
+          <Field label="Sistema ou projeto"><SimpleSelect value={effectiveProject} onValueChange={setProjectId} options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name }))} placeholder="Escolha o sistema" loading={projects.isLoading} empty="Nenhum sistema liberado para sua conta. Fale com a Optsolv." /></Field>
+          <Field label="Título (opcional)" hint="Se deixar em branco, usamos a primeira frase."><Input name="title" maxLength={140} placeholder="Ex.: Menu não abre no celular" /></Field>
           <div>
             <span className="label">Anexos <span className="font-normal text-ink-4">(imagens, PDF, planilhas · até {MAX_MB} MB cada)</span></span>
             <input ref={fileRef} type="file" accept={ACCEPT} multiple className="sr-only" aria-label="Escolher arquivos" onChange={(e) => { setFiles((f) => [...f, ...Array.from(e.target.files ?? [])]); e.target.value = ''; }} />

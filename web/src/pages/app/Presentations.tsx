@@ -60,14 +60,14 @@ export function GenerateDialog({ open, onClose }: { open: boolean; onClose: () =
   return (
     <Dialog open={open} onClose={onClose} title="Gerar apresentação executiva" width={560}>
       <form className="grid gap-4" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); gen.mutate({ clientId, projectIds: projectIds.length ? projectIds : undefined, periodStart: new Date(String(f.get('start')) + 'T00:00:00').toISOString(), periodEnd: new Date(String(f.get('end')) + 'T23:59:59').toISOString(), title: String(f.get('title') || '') || undefined }); }}>
-        <Field label="Cliente"><SimpleSelect value={clientId} onValueChange={(v) => { setClientId(v); setProjectIds([]); }} options={me.clients.map((c) => ({ value: c.id, label: c.name }))} /></Field>
+        <Field label="Cliente"><SimpleSelect value={clientId} onValueChange={(v) => { setClientId(v); setProjectIds([]); }} options={me.clients.map((c) => ({ value: c.id, label: c.name }))} placeholder="Escolha o cliente" empty="Nenhum cliente cadastrado" emptyAction={me.actor.role === 'admin_optsolv' && <Link to="/app/clientes" className="link">Cadastrar</Link>} /></Field>
         <div>
           <span className="label">Projetos <span className="font-normal text-ink-4">(nenhum marcado = todos)</span></span>
-          <div className="flex flex-wrap gap-2">{projects.data?.map((p) => { const on = projectIds.includes(p.id); return <Chip key={p.id} active={on} onClick={() => setProjectIds((s) => (on ? s.filter((x) => x !== p.id) : [...s, p.id]))}>{p.name}</Chip>; })}</div>
+          {clientId && projects.isLoading ? <p className="text-sm text-ink-4">Carregando projetos…</p> : !projects.data?.length ? <p className="fade-in rounded-lg border border-dashed border-line-2 bg-paper-2/60 px-3.5 py-2.5 text-sm text-ink-4">{clientId ? 'Nenhum projeto neste cliente: a apresentação considera o cliente todo.' : 'Escolha um cliente para ver os projetos.'}</p> : <div className="flex flex-wrap gap-2">{projects.data.map((p) => { const on = projectIds.includes(p.id); return <Chip key={p.id} active={on} onClick={() => setProjectIds((s) => (on ? s.filter((x) => x !== p.id) : [...s, p.id]))}>{p.name}</Chip>; })}</div>}
         </div>
         <div className="grid grid-cols-2 gap-3"><Field label="Início"><DatePicker name="start" required value={from} onChange={(d) => { setFrom(d); if (to < d) setTo(d); }} /></Field><Field label="Fim"><DatePicker name="end" required min={from} value={to} onChange={setTo} /></Field></div>
         <Field label="Título (opcional)"><Input name="title" maxLength={140} placeholder="Ex.: Resultados do semestre" /></Field>
-        <div className="flex justify-end gap-2 pt-1"><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" loading={gen.isPending}>Gerar slides</Button></div>
+        <div className="flex justify-end gap-2 pt-1"><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" loading={gen.isPending} disabled={!clientId}>Gerar slides</Button></div>
       </form>
     </Dialog>
   );

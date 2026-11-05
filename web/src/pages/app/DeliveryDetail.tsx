@@ -45,9 +45,9 @@ export function DeliveryDetailPage() {
             <div className="flex flex-wrap items-center gap-2 mb-2">{published ? <Badge tone="orange"><Eye size={12} />Publicada em {fmtDate(d.publishedAt)}</Badge> : <Badge tone="neutral"><EyeOff size={12} />Rascunho · invisível ao cliente</Badge>}<span className="text-xs text-ink-4">{d.projectName} · entregue em {fmtDate(d.deliveredAt)} · {d.ownerLabel}</span></div>
             {editing ? (
               <form className="grid gap-3" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); patch.mutate({ title: f.get('title'), summary: f.get('summary'), details: String(f.get('details') || ''), deliveredAt: fromInputDate(String(f.get('deliveredAt'))).toISOString() }); }}>
-                <Input name="title" defaultValue={d.title} className="text-3xl font-semibold" maxLength={140} />
-                <Field label="Resumo para o cliente"><Textarea name="summary" defaultValue={d.summary} rows={3} /></Field>
-                <Field label="Detalhes"><Textarea name="details" defaultValue={d.details ?? ''} rows={5} /></Field>
+                <Input name="title" defaultValue={d.title} className="text-3xl font-semibold" maxLength={140} aria-label="Nome da entrega" placeholder="Nome da entrega" />
+                <Field label="Resumo para o cliente"><Textarea name="summary" defaultValue={d.summary} rows={3} placeholder="Uma ou duas frases, sem jargão técnico." /></Field>
+                <Field label="Detalhes"><Textarea name="details" defaultValue={d.details ?? ''} rows={5} placeholder="Como foi feito, limitações, o que muda no dia a dia." /></Field>
                 <Field label="Data da entrega"><DatePicker name="deliveredAt" defaultValue={new Date(d.deliveredAt)} className="sm:w-60" /></Field>
                 <div className="flex gap-2"><Button type="submit" size="sm" loading={patch.isPending}>Salvar</Button><Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button></div>
               </form>
@@ -129,9 +129,9 @@ export function DeliveryDetailPage() {
         <form className="grid gap-4" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); const mv = String(f.get('metricValue') || ''); evidence.mutate({ kind, title: f.get('title'), description: String(f.get('description') || '') || undefined, metricValue: mv ? Number(mv) : undefined, metricUnit: String(f.get('metricUnit') || '') || undefined, sourceLabel: String(f.get('sourceLabel') || '') || undefined, linkUrl: String(f.get('linkUrl') || '') || undefined }); }}>
           <div className="grid grid-cols-3 gap-2" role="group" aria-label="Natureza da evidência">{(['observado', 'esperado', 'medido'] as EvidenceKind[]).map((k) => <Button type="button" key={k} variant="secondary" aria-pressed={kind === k} onClick={() => setKind(k)} className={cx('h-auto flex-col items-start text-left rounded-lg px-3 py-2.5 gap-0.5 whitespace-normal font-normal', kind === k && 'border-orange-500 bg-orange-50 hover:bg-orange-50')}><span className="block text-sm font-semibold">{EVIDENCE[k].label}</span><span className="block text-2xs text-ink-4 leading-snug">{EVIDENCE[k].hint}</span></Button>)}</div>
           <Field label="Título"><Input name="title" required minLength={2} autoFocus placeholder={kind === 'medido' ? 'Ex.: Buscas por obra no primeiro mês' : 'Ex.: Cliente localiza visita sem rolar a lista'} /></Field>
-          {kind === 'medido' && <div className="grid grid-cols-2 gap-3"><Field label="Valor"><Input name="metricValue" type="number" step="any" required /></Field><Field label="Unidade"><Input name="metricUnit" placeholder="buscas em 30 dias" required /></Field></div>}
-          <Field label="Descrição"><Textarea name="description" rows={3} /></Field>
-          <Field label="Fonte" hint={kind === 'medido' ? 'Obrigatória: de onde veio o número.' : 'Quem observou ou onde foi demonstrado.'}><Input name="sourceLabel" required={kind === 'medido'} /></Field>
+          {kind === 'medido' && <div className="grid grid-cols-2 gap-3"><Field label="Valor"><Input name="metricValue" type="number" step="any" required placeholder="Ex.: 120" /></Field><Field label="Unidade"><Input name="metricUnit" placeholder="buscas em 30 dias" required /></Field></div>}
+          <Field label="Descrição"><Textarea name="description" rows={3} placeholder="Contexto da evidência: o que mudou e para quem." /></Field>
+          <Field label="Fonte" hint={kind === 'medido' ? 'Obrigatória: de onde veio o número.' : 'Quem observou ou onde foi demonstrado.'}><Input name="sourceLabel" required={kind === 'medido'} placeholder={kind === 'medido' ? 'Ex.: Relatório de uso do sistema' : 'Ex.: Coordenadora de obras'} /></Field>
           <Field label="Link (opcional)"><Input name="linkUrl" type="url" placeholder="https://" /></Field>
           <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setEvidenceOpen(false)}>Cancelar</Button><Button type="submit" loading={evidence.isPending}>Registrar</Button></div>
         </form>
