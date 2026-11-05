@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router';
-import { LayoutDashboard, Building2, MessageSquareText, Inbox, PackageCheck, Presentation, KeyRound, LogOut, Menu, Search, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LayoutDashboard, Building2, MessageSquareText, Inbox, PackageCheck, Presentation, KeyRound, LogOut, Menu, Search, PanelLeftClose, PanelLeftOpen, Blocks } from 'lucide-react';
 import { CommandPalette, isMac } from '@/components/command-palette';
 import { ErrorBoundary } from '@/components/status-screens';
 import { Logo, Symbol } from '@/components/logo';
@@ -19,6 +19,7 @@ const nav = [
   { to: '/app/entregas', label: 'Entregas', icon: PackageCheck, group: 'Operação' },
   { to: '/app/apresentacoes', label: 'Apresentações', icon: Presentation, group: 'Relacionamento' },
   { to: '/app/clientes', label: 'Clientes', icon: Building2, group: 'Relacionamento' },
+  { to: '/app/integracoes', label: 'IA e integrações', icon: Blocks, group: 'Administração' },
   { to: '/app/acessos', label: 'Acessos e API', icon: KeyRound, admin: true, group: 'Administração' },
 ];
 
@@ -52,8 +53,15 @@ function SideNav({ items, mini, openCount }: { items: typeof nav; mini: boolean;
   const loc = useLocation();
   const [pill, setPill] = useState<{ y: number; h: number; ready: boolean } | null>(null);
   useLayoutEffect(() => {
-    const a = ref.current?.querySelector<HTMLElement>('a[aria-current="page"]');
-    setPill((p) => (a ? { y: a.offsetTop, h: a.offsetHeight, ready: !!p } : null));
+    const measure = () => {
+      const a = ref.current?.querySelector<HTMLElement>('a[aria-current="page"]');
+      setPill((p) => (a ? { y: a.offsetTop, h: a.offsetHeight, ready: !!p } : null));
+    };
+    measure();
+    // Escondido (celular) o menu mede zero; ao voltar a aparecer, mede de novo para o realce não ficar no topo.
+    const ro = new ResizeObserver(measure);
+    if (ref.current) ro.observe(ref.current);
+    return () => ro.disconnect();
   }, [loc.pathname, mini, items.length]);
   const groups = [...new Set(items.map((n) => n.group))];
   return (

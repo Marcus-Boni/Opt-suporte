@@ -15,6 +15,7 @@ import { DeliveryDetailPage } from './pages/app/DeliveryDetail';
 import { PresentationsPage } from './pages/app/Presentations';
 import { PresentationEditorPage } from './pages/app/PresentationEditor';
 import { AccessPage } from './pages/app/Access';
+import { IntegrationsPage } from './pages/app/Integrations';
 import { PortalHomePage } from './pages/portal/Home';
 import { PortalRequestsPage, PortalNewRequestPage } from './pages/portal/Requests';
 import { PortalRequestDetailPage } from './pages/portal/RequestDetail';
@@ -63,6 +64,7 @@ export function App() {
         <Route path="apresentacoes" element={<PresentationsPage />} />
         <Route path="apresentacoes/:id" element={<PresentationEditorPage />} />
         <Route path="acessos" element={<AccessPage />} />
+        <Route path="integracoes" element={<IntegrationsPage />} />
         <Route path="*" element={<NotFoundPage inline />} />
       </Route>
       <Route path="/app/apresentacoes/:id/apresentar" element={<RequireRole internal><PresentPage /></RequireRole>} />
