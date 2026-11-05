@@ -5,7 +5,7 @@
  */
 import { useEffect, useState, type ReactNode, type ComponentProps } from 'react';
 import { Link } from 'react-router';
-import { CalendarDays, Loader2 } from 'lucide-react';
+import { CalendarDays, Inbox, Loader2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { toInputDate } from '@/lib/labels';
@@ -61,9 +61,15 @@ export function Textarea({ className, ...rest }: ComponentProps<typeof ShadTexta
 
 const EMPTY = '__empty__';
 export type Option = { value: string; label: string; disabled?: boolean };
-/** Select do shadcn com lista de opções; aceita "" como valor (mapeado internamente) e `name` para formulários. */
-export function SimpleSelect({ value, defaultValue, onValueChange, options, placeholder, name, disabled, className, size = 'md', required, 'aria-label': ariaLabel }: {
-  value?: string; defaultValue?: string; onValueChange?: (v: string) => void; options: Option[]; placeholder?: string; name?: string; disabled?: boolean; className?: string; size?: 'sm' | 'md'; required?: boolean; 'aria-label'?: string;
+/**
+ * Select do shadcn com lista de opções; aceita "" como valor (mapeado internamente) e `name` para formulários.
+ * Estados inteligentes: `loading` mostra "Carregando…"; sem nada para escolher mostra `empty` (com `emptyAction`
+ * opcional, ex.: link para cadastrar) no lugar de um select vazio. Com `empty`, opções de valor "" ("Todos…")
+ * não contam como escolha.
+ */
+export function SimpleSelect({ value, defaultValue, onValueChange, options, placeholder = 'Selecione…', name, disabled, className, size = 'md', required, loading, empty, emptyAction, 'aria-label': ariaLabel }: {
+  value?: string; defaultValue?: string; onValueChange?: (v: string) => void; options: Option[]; placeholder?: string; name?: string; disabled?: boolean; className?: string; size?: 'sm' | 'md'; required?: boolean;
+  loading?: boolean; empty?: string; emptyAction?: ReactNode; 'aria-label'?: string;
 }) {
   // Sempre controlado por dentro: o rótulo exibido vem das opções, não da coleção interna do Radix.
   const [inner, setInner] = useState(value ?? defaultValue ?? '');
@@ -72,9 +78,22 @@ export function SimpleSelect({ value, defaultValue, onValueChange, options, plac
   const label = options.find((o) => o.value === current)?.label;
   const enc = (v: string) => (v === '' ? EMPTY : v);
   const dec = (v: string) => (v === EMPTY ? '' : v);
+  const box = size === 'sm' ? 'h-9 rounded-lg px-3 text-sm' : 'h-10 rounded-lg px-3.5 text-md';
+  const isEmpty = !loading && (empty ? !options.some((o) => o.value !== '') : options.length === 0);
+  if (loading || isEmpty) {
+    return (
+      <div role="status" aria-label={ariaLabel} className={cn('fade-in flex w-full items-center gap-2 border border-dashed border-line-2 bg-paper-2/60 text-ink-4', box, className)}>
+        {loading ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : <Inbox className="size-4 shrink-0" aria-hidden />}
+        <span className="min-w-0 truncate font-normal">{loading ? 'Carregando…' : empty ?? 'Nenhuma opção disponível'}</span>
+        {!loading && emptyAction && <span className="ml-auto shrink-0 text-sm font-semibold">{emptyAction}</span>}
+        {/* Mantém a validação nativa do formulário: campo obrigatório sem opção bloqueia o envio. */}
+        {name && required && <input tabIndex={-1} aria-hidden name={name} required value="" onChange={() => {}} className="sr-only" />}
+      </div>
+    );
+  }
   return (
     <ShadSelect value={enc(current)} onValueChange={(v) => { const d = dec(v); setInner(d); onValueChange?.(d); }} name={name} disabled={disabled} required={required}>
-      <SelectTrigger aria-label={ariaLabel} className={cn('w-full bg-card border-line-2 hover:border-ink-5 focus-visible:ring-orange-100 font-medium text-ink', size === 'sm' ? 'h-9 rounded-lg px-3 text-sm' : 'h-10 rounded-lg px-3.5 text-md', className)}>
+      <SelectTrigger aria-label={ariaLabel} className={cn('w-full bg-card border-line-2 hover:border-ink-5 focus-visible:ring-orange-100 font-medium text-ink data-[placeholder]:font-normal data-[placeholder]:text-ink-5', box, className)}>
         <SelectValue placeholder={placeholder}>{label}</SelectValue>
       </SelectTrigger>
       <SelectContent position="popper" className="rounded-xl shadow-pop ring-line">
