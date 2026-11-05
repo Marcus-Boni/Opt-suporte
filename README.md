@@ -25,9 +25,6 @@ Solicitações, entregas e evidências de cada cliente em um só lugar. Portal p
 
 ![Página de apresentação do Optsolv Suporte](docs/screenshots/landing.jpg)
 
-> [!NOTE]
-> Este repositório é um **ambiente de demonstração com dados fictícios**. "Cidade Engenharia" e "Marca Ambiental" são cenários: pessoas, pedidos, números e datas do seed não descrevem fatos reais.
-
 ## Visão geral
 
 O Optsolv Suporte acompanha cada pedido de um cliente do começo ao fim e deixa rastro em cada etapa:
@@ -56,9 +53,8 @@ A regra central do produto: **solicitação não é entrega, e entrega não é r
 
 - **Node.js 22+** (validado com 24.11)
 - **pnpm** via Corepack: `corepack enable`
-- **Docker** com Compose, para o Postgres 17 local (ou qualquer Postgres 15+)
-
-Nenhuma credencial externa é necessária.
+- **PostgreSQL 15+** (Azure Database for PostgreSQL em produção; Docker Compose opcional para desenvolvimento local)
+- **Azure CLI** com `az login`, para a IA da captura em desenvolvimento (opcional: sem ela, a captura usa regras locais)
 
 ### Instalação
 
@@ -82,7 +78,7 @@ pnpm dev
 ```
 
 <details>
-<summary><b>Ambiente local de demonstração</b> (Docker, dados fictícios)</summary>
+<summary><b>Banco local para desenvolvimento</b> (Docker)</summary>
 
 Use a `DATABASE_URL` local comentada no `.env.example` e rode:
 
@@ -104,26 +100,6 @@ pnpm db:migrate && pnpm db:seed
 > [!IMPORTANT]
 > No banco real, seed, reset e testes **recusam bancos remotos** por segurança. Guia completo em [`docs/DATABASE.md`](docs/DATABASE.md).
 
-### Contas de demonstração (só no ambiente local)
-
-Todas com a senha `optsolv2026`. Os atalhos dessas contas aparecem no login só em `pnpm dev` (ou num build com `VITE_DEMO_LOGIN=true`); em produção a tela pede apenas e-mail e senha.
-
-| E-mail | Pessoa fictícia | Papel | Enxerga |
-|---|---|---|---|
-| `admin@optsolv.demo` | Helena Prado | Administradora Optsolv | Todos os clientes, Acessos e API |
-| `ana@optsolv.demo` | Ana Ribeiro | Colaboradora Optsolv | Cidade Engenharia e Marca Ambiental |
-| `bruno@optsolv.demo` | Bruno Saraiva | Colaborador Optsolv | Somente Marca Ambiental |
-| `joao@cidadeengenharia.demo` | João Pereira | Cliente | Portal da Cidade Engenharia |
-| `marina@cidadeengenharia.demo` | Marina Lobo | Cliente | Portal da Cidade Engenharia |
-| `otavio@marcaambiental.demo` | Otávio Reis | Cliente | Portal da Marca Ambiental |
-
-Tokens de API/MCP criados pelo seed (o banco guarda só o hash):
-
-| Token | Papel | Escopo |
-|---|---|---|
-| `osk_demo_agente_cidade_0000000000000000` | colaborador | Cidade Engenharia |
-| `osk_demo_admin_total_000000000000000000` | admin | todos os clientes |
-
 ### Scripts
 
 | Comando | O que faz |
@@ -131,7 +107,7 @@ Tokens de API/MCP criados pelo seed (o banco guarda só o hash):
 | `pnpm dev` | API (4000) e web (5173) em paralelo, com reload |
 | `pnpm db:up` / `pnpm db:down` | Sobe/derruba o Postgres do `docker-compose.yml` (porta 5434) |
 | `pnpm db:migrate` | Aplica as migrações Drizzle (`server/drizzle`) |
-| `pnpm db:seed` | Seed fictício e idempotente (só banco local) |
+| `pnpm db:seed` | Dados de exemplo para desenvolvimento (só banco local) |
 | `pnpm --filter server db:create-admin` | Cria o primeiro administrador num banco novo |
 | `pnpm db:reset` | Limpa o banco (anexos inclusos), migra e semeia de novo (só banco local) |
 | `pnpm test` | Suíte Vitest em banco isolado |
@@ -242,11 +218,13 @@ Documentação completa em [`docs/API.md`](docs/API.md), [`docs/MCP.md`](docs/MC
 - **API REST v1:** 40 rotas em `/api/v1`, OpenAPI em `/docs`, sessão por cookie **ou** `Authorization: Bearer osk_…`, envelope de erro uniforme, `Idempotency-Key` nas criações, paginação e filtros.
 - **MCP:** servidor STDIO com 10 ferramentas concretas (schemas Zod), autenticado por credencial e limitado ao escopo dela.
 
+O token (`osk_…`) vem de uma credencial criada em **Acessos e API**; o banco guarda só o hash.
+
 ```bash
-curl -H "Authorization: Bearer osk_demo_agente_cidade_0000000000000000" http://localhost:4000/api/v1/projects
+curl -H "Authorization: Bearer $OPTSOLV_API_TOKEN" http://localhost:4000/api/v1/projects
 ```
 ```bash
-curl -X POST http://localhost:4000/api/v1/requests -H "Authorization: Bearer osk_demo_agente_cidade_0000000000000000" -H "Content-Type: application/json" -H "Idempotency-Key: demo-123" -d "{\"projectId\":\"<id de um projeto da Cidade>\",\"description\":\"Incluir legenda de cores no mapa de obras.\",\"category\":\"melhoria\"}"
+curl -X POST http://localhost:4000/api/v1/requests -H "Authorization: Bearer $OPTSOLV_API_TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-123" -d "{\"projectId\":\"<id do projeto>\",\"description\":\"Incluir legenda de cores no mapa de obras.\",\"category\":\"melhoria\"}"
 ```
 
 A solicitação criada aparece no backoffice com a origem **API** (ou **Agente MCP**, se criada pelo `pnpm --filter server mcp:demo`).
