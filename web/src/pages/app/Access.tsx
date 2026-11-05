@@ -90,7 +90,7 @@ export function AccessPage() {
         <form className="grid gap-4" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); createUser.mutate({ name: f.get('name'), email: f.get('email'), password: f.get('password'), role, clientId: role === 'cliente' ? f.get('clientId') : undefined, clientIds: role === 'colaborador_optsolv' ? f.getAll('clientIds') : undefined }); }}>
           <Field label="Nome"><Input name="name" required minLength={2} autoFocus /></Field>
           <Field label="E-mail"><Input name="email" type="email" required /></Field>
-          <Field label="Senha inicial" hint="Mínimo 8 caracteres."><Input name="password" type="text" required minLength={8} defaultValue="optsolv2026" /></Field>
+          <Field label="Senha inicial" hint="Mínimo 12 caracteres. Envie à pessoa por um canal seguro."><Input name="password" type="text" autoComplete="new-password" required minLength={12} /></Field>
           <Field label="Papel"><SimpleSelect value={role} onValueChange={(v) => setRole(v as Role)} options={ROLE_OPTIONS} /></Field>
           {role === 'cliente' && <Field label="Cliente"><SimpleSelect name="clientId" required defaultValue={me.clients[0]?.id} options={clientOptions} /></Field>}
           {role === 'colaborador_optsolv' && <div><span className="label">Clientes autorizados</span><div className="grid gap-2">{me.clients.map((c) => <Label key={c.id} className="flex items-center gap-2"><Checkbox name="clientIds" value={c.id} defaultChecked />{c.name}</Label>)}</div></div>}
