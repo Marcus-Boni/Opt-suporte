@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
-const base = process.env.DATABASE_URL ?? 'postgres://optsolv:optsolv@127.0.0.1:5434/optsolv_experience';
+// Base dos testes: TEST_DATABASE_URL, nunca a DATABASE_URL da aplicação (que pode apontar para o Azure).
+const base = process.env.TEST_DATABASE_URL ?? 'postgres://optsolv:optsolv@127.0.0.1:5434/optsolv_experience';
 
 export default defineConfig({
   test: {
@@ -9,7 +10,7 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 60_000,
-    // Os testes nunca tocam o banco de demonstração.
-    env: { DATABASE_URL: base.replace(/\/[^/]+$/, '/optsolv_experience_test'), DATABASE_URL_BASE: base, UPLOAD_DIR: './data/uploads-test', NODE_ENV: 'test' },
+    // Os testes nunca tocam o banco de demonstração: usam um banco irmão "<base>_test", recriado a cada execução.
+    env: { DATABASE_URL: base.replace(/\/[^/?]+(\?|$)/, '/optsolv_experience_test$1'), DATABASE_URL_BASE: base, NODE_ENV: 'test' },
   },
 });

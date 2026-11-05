@@ -11,6 +11,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts && tsx src/db/migrate.ts && tsx src/db/seed.ts",
+    "db:create-admin": "tsx src/db/create-admin.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "mcp:demo": "tsx scripts/mcp-demo.ts"
