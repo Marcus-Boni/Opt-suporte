@@ -14,6 +14,9 @@ const DEMO = [
   { email: 'otavio@marcaambiental.demo', name: 'Otávio Reis', role: 'Cliente · Marca Ambiental' },
 ];
 
+// Atalhos e senha das contas demo só em desenvolvimento ou em um ambiente de demonstração explícito (repositório público).
+const SHOW_DEMO = import.meta.env.DEV || import.meta.env.VITE_DEMO_LOGIN === 'true';
+
 const HEADLINE = ['Do', 'pedido', 'no', 'WhatsApp', 'ao', 'resultado', 'apresentado.'];
 
 export function LoginPage() {
@@ -21,7 +24,7 @@ export function LoginPage() {
   const nav = useNavigate();
   const loc = useLocation();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('optsolv2026');
+  const [password, setPassword] = useState(SHOW_DEMO ? 'optsolv2026' : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,14 +61,14 @@ export function LoginPage() {
             ))}
           </ol>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-dusk"><span>Ambiente de demonstração · dados fictícios</span><Link to="/" className="font-medium text-paper-3 underline-offset-4 hover:text-paper hover:underline">Conheça o Optsolv Suporte →</Link></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-dusk"><span>{SHOW_DEMO ? 'Ambiente de demonstração · dados fictícios' : 'Acesso exclusivo para clientes e equipe Optsolv'}</span><Link to="/" className="font-medium text-paper-3 underline-offset-4 hover:text-paper hover:underline">Conheça o Optsolv Suporte →</Link></div>
       </section>
 
       <section className="px-6 py-10 md:px-14 md:py-14 flex items-center">
         <form onSubmit={submit} className="w-full max-w-[400px] mx-auto rise" style={{ animationDelay: '160ms' }}>
           <h2 className="text-4xl font-semibold tracking-tight">Entrar</h2>
-          <p className="mt-1 text-base text-ink-3">Use uma conta de demonstração ou digite seu e-mail.</p>
-          <div className="mt-6 grid gap-2" role="group" aria-label="Contas de demonstração">
+          <p className="mt-1 text-base text-ink-3">{SHOW_DEMO ? 'Use uma conta de demonstração ou digite seu e-mail.' : 'Use o e-mail e a senha do seu acesso.'}</p>
+          {SHOW_DEMO && <div className="mt-6 grid gap-2" role="group" aria-label="Contas de demonstração">
             {DEMO.map((d) => (
               <Button type="button" key={d.email} variant="secondary" onClick={() => setEmail(d.email)} aria-pressed={email === d.email}
                 className={cx('h-auto justify-start text-left rounded-xl px-4 py-3 gap-3 font-normal', email === d.email ? 'border-orange-500 bg-orange-50 hover:bg-orange-50' : '')}>
@@ -73,10 +76,10 @@ export function LoginPage() {
                 <span className="min-w-0"><span className="block text-base font-semibold">{d.name}</span><span className="block text-xs text-ink-4 truncate">{d.role}</span></span>
               </Button>
             ))}
-          </div>
+          </div>}
           <div className="mt-5 grid gap-4">
             <Field label="E-mail"><Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com" /></Field>
-            <Field label="Senha" hint="Senha das contas de demonstração: optsolv2026"><Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+            <Field label="Senha" hint={SHOW_DEMO ? 'Senha das contas de demonstração: optsolv2026' : undefined}><Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
           </div>
           {error && <p role="alert" className="mt-4 text-base text-bad bg-bad-soft rounded-lg px-3.5 py-2.5">{error}</p>}
           <Button type="submit" size="lg" loading={busy} className="mt-6 w-full" icon={<ArrowRight />}>Entrar</Button>
