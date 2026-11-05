@@ -1,7 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, pgEnum, uuid, text, timestamp, integer, boolean, jsonb, numeric, primaryKey, index, uniqueIndex,
+  pgTable, pgEnum, uuid, text, timestamp, integer, boolean, jsonb, numeric, primaryKey, index, uniqueIndex, customType,
 } from 'drizzle-orm/pg-core';
+
+/** Binário do Postgres (bytea) mapeado para Buffer do Node. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
 
 export const roleEnum = pgEnum('role', ['admin_optsolv', 'colaborador_optsolv', 'cliente']);
 export const requestStatusEnum = pgEnum('request_status', [
@@ -142,9 +145,20 @@ export const attachments = pgTable('attachments', {
   fileName: text('file_name').notNull(),
   mimeType: text('mime_type').notNull(),
   sizeBytes: integer('size_bytes').notNull(),
-  storagePath: text('storage_path').notNull(),
+  /** SHA-256 do conteúdo: integridade e ETag do download. Nulo só em anexos legados (antes do armazenamento no banco). */
+  sha256: text('sha256'),
   uploadedByLabel: text('uploaded_by_label').notNull(),
   createdAt: createdAt(),
+});
+
+/**
+ * Conteúdo dos anexos, em tabela própria: listar e contar anexos nunca lê os bytes.
+ * Apagar o anexo apaga o conteúdo (cascade). A coluna usa STORAGE EXTERNAL (ver migração):
+ * imagens e PDFs já vêm comprimidos, então o Postgres não gasta CPU tentando comprimir de novo.
+ */
+export const attachmentContents = pgTable('attachment_contents', {
+  attachmentId: uuid('attachment_id').primaryKey().references(() => attachments.id, { onDelete: 'cascade' }),
+  data: bytea('data').notNull(),
 });
 
 export const deliveries = pgTable('deliveries', {

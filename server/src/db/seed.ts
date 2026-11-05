@@ -2,12 +2,12 @@
  * Seed de demonstração — TODOS os dados são fictícios.
  * "Cidade Engenharia" e "Marca Ambiental" são apenas nomes de cenário; pessoas, pedidos, datas e números não descrevem fatos reais.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { eq } from 'drizzle-orm';
 import { db, pool, schema } from './index.js';
 import { env } from '../env.js';
+import { assertDisposableDatabase } from './connection.js';
 import { hashPassword, sha256 } from '../auth/password.js';
 import { generatePresentation, updatePresentation } from '../services/presentations.js';
 import type { Actor } from '../auth/actor.js';
@@ -23,6 +23,8 @@ const d = (s: string) => new Date(`${s}:00-03:00`);
 /** Aplica o seed uma única vez; devolve false se o banco já tinha dados. */
 export async function runSeed(log: (msg: string) => void = console.log) {
 if (process.env.NODE_ENV === 'production') throw new Error('O seed de demonstração grava tokens públicos: não rode em produção.');
+// Dados fictícios e tokens públicos nunca entram num banco real por engano.
+assertDisposableDatabase(env.DATABASE_URL, 'Seed de demonstração');
 const [existing] = await db.select({ id: schema.clients.id }).from(schema.clients).limit(1);
 if (existing) {
   log('Seed já aplicado. Para recomeçar: pnpm db:reset');
@@ -143,8 +145,8 @@ await db.insert(schema.requestComments).values([
   { requestId: MA[3].id, authorUserId: bruno.id, authorLabel: 'Bruno Saraiva', visibility: 'public', body: 'Agora a mensagem informa o motivo (tamanho, formato ou conexão) e o limite de 10 MB.', createdAt: d('2026-08-29T16:05') },
 ]);
 
-// ---------- anexos fictícios (gerados localmente) ----------
-function pngFile(filePath: string, w: number, h: number, color: [number, number, number], accent: [number, number, number]) {
+// ---------- anexos fictícios (PNG gerado em memória) ----------
+function pngImage(w: number, h: number, color: [number, number, number], accent: [number, number, number]) {
   const rows: Buffer[] = [];
   for (let y = 0; y < h; y++) {
     const row = Buffer.alloc(1 + w * 3);
@@ -160,23 +162,23 @@ function pngFile(filePath: string, w: number, h: number, color: [number, number,
   const chunk = (type: string, data: Buffer) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([len, td, c]); };
   const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
   const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(Buffer.concat(rows))), chunk('IEND', Buffer.alloc(0))]);
-  writeFileSync(filePath, png);
-  return png.length;
+  return png;
 }
-const uploads = (clientId: string) => { const dir = path.resolve(env.UPLOAD_DIR, clientId); mkdirSync(dir, { recursive: true }); return dir; };
-const ceDir = uploads(cidade.id), maDir = uploads(marca.id);
-const f1 = path.join(ceDir, 'seed-print-cadastro-visitas.png'); const s1 = pngFile(f1, 640, 360, [247, 246, 240], [255, 107, 61]);
-const f2 = path.join(ceDir, 'seed-print-exportar-agenda.png'); const s2 = pngFile(f2, 640, 360, [247, 246, 240], [23, 22, 15]);
-const f3 = path.join(ceDir, 'seed-evidencia-busca-visitas.png'); const s3 = pngFile(f3, 800, 450, [255, 241, 235], [255, 107, 61]);
-const f4 = path.join(maDir, 'seed-print-tablet-tabela.png'); const s4 = pngFile(f4, 640, 360, [247, 246, 240], [255, 107, 61]);
-const f5 = path.join(maDir, 'seed-formatos-aceitos.txt'); const t5 = 'Formatos aceitos no upload (dado fictício de demonstração):\nPDF, PNG, JPG, XLSX, DOCX, CSV\n'; writeFileSync(f5, t5);
-const [attCe1, , attCe3, attMa7] = await db.insert(schema.attachments).values([
-  { clientId: cidade.id, requestId: CE[1].id, fileName: 'print-erro-cadastro-visita.png', mimeType: 'image/png', sizeBytes: s1, storagePath: f1, uploadedByLabel: 'Ana Ribeiro', createdAt: d('2026-06-02T09:45') },
-  { clientId: cidade.id, requestId: CE[6].id, fileName: 'print-exportar-agenda.png', mimeType: 'image/png', sizeBytes: s2, storagePath: f2, uploadedByLabel: 'Ana Ribeiro', createdAt: d('2026-09-23T09:10') },
-  { clientId: cidade.id, fileName: 'evidencia-busca-por-obra.png', mimeType: 'image/png', sizeBytes: s3, storagePath: f3, uploadedByLabel: 'Ana Ribeiro', createdAt: d('2026-09-10T10:00') },
-  { clientId: marca.id, requestId: MA[7].id, fileName: 'foto-tablet-tabela-residuos.png', mimeType: 'image/png', sizeBytes: s4, storagePath: f4, uploadedByLabel: 'Otávio Reis', createdAt: d('2026-10-09T13:05') },
-  { clientId: marca.id, fileName: 'formatos-aceitos.txt', mimeType: 'text/plain', sizeBytes: Buffer.byteLength(t5), storagePath: f5, uploadedByLabel: 'Bruno Saraiva', createdAt: d('2026-08-30T09:00') },
-]).returning();
+// Conteúdo gravado no banco (attachment_contents), como nos uploads reais.
+const blobs = [
+  { clientId: cidade.id, requestId: CE[1].id, fileName: 'print-erro-cadastro-visita.png', mimeType: 'image/png', data: pngImage(640, 360, [247, 246, 240], [255, 107, 61]), uploadedByLabel: 'Ana Ribeiro', createdAt: d('2026-06-02T09:45') },
+  { clientId: cidade.id, requestId: CE[6].id, fileName: 'print-exportar-agenda.png', mimeType: 'image/png', data: pngImage(640, 360, [247, 246, 240], [23, 22, 15]), uploadedByLabel: 'Ana Ribeiro', createdAt: d('2026-09-23T09:10') },
+  { clientId: cidade.id, fileName: 'evidencia-busca-por-obra.png', mimeType: 'image/png', data: pngImage(800, 450, [255, 241, 235], [255, 107, 61]), uploadedByLabel: 'Ana Ribeiro', createdAt: d('2026-09-10T10:00') },
+  { clientId: marca.id, requestId: MA[7].id, fileName: 'foto-tablet-tabela-residuos.png', mimeType: 'image/png', data: pngImage(640, 360, [247, 246, 240], [255, 107, 61]), uploadedByLabel: 'Otávio Reis', createdAt: d('2026-10-09T13:05') },
+  { clientId: marca.id, fileName: 'formatos-aceitos.txt', mimeType: 'text/plain', data: Buffer.from('Formatos aceitos no upload (dado fictício de demonstração):\nPDF, PNG, JPG, XLSX, DOCX, CSV\n'), uploadedByLabel: 'Bruno Saraiva', createdAt: d('2026-08-30T09:00') },
+];
+const atts = await db.insert(schema.attachments).values(
+  blobs.map(({ data, ...meta }) => ({ ...meta, sizeBytes: data.length, sha256: createHash('sha256').update(data).digest('hex') })),
+).returning();
+// Casa conteúdo e anexo pelo nome (único neste seed), sem depender da ordem do RETURNING.
+await db.insert(schema.attachmentContents).values(atts.map((a) => ({ attachmentId: a.id, data: blobs.find((b) => b.fileName === a.fileName)!.data })));
+const byName = (n: string) => atts.find((a) => a.fileName === n)!;
+const attCe1 = byName('print-erro-cadastro-visita.png'), attCe3 = byName('evidencia-busca-por-obra.png'), attMa7 = byName('foto-tablet-tabela-residuos.png'), attMa5 = byName('formatos-aceitos.txt');
 await db.insert(schema.requestEvents).values([
   { requestId: CE[1].id, actorLabel: 'Ana Ribeiro', type: 'anexo', toValue: 'print-erro-cadastro-visita.png', isPublic: true, createdAt: d('2026-06-02T09:45') },
   { requestId: MA[7].id, actorLabel: 'Otávio Reis', type: 'anexo', toValue: 'foto-tablet-tabela-residuos.png', isPublic: true, createdAt: d('2026-10-09T13:05') },
@@ -197,7 +199,7 @@ const [ceD1, ceD2, ceD3, ceD4, ceD5, maD1, maD2, maD3] = await db.insert(schema.
   dv({ clientId: marca.id, projectId: maPortal.id, ownerUserId: bruno.id, ownerLabel: 'Bruno Saraiva', title: 'Histórico de coletas por unidade', summary: 'Linha do tempo de coletas por unidade geradora com laudos vinculados.', status: 'rascunho', publishedAt: null, deliveredAt: d('2026-11-01T10:00') }),
 ]).returning();
 await db.update(schema.attachments).set({ deliveryId: ceD2.id }).where(eq(schema.attachments.id, attCe3.id));
-await db.update(schema.attachments).set({ deliveryId: maD2.id }).where(eq(schema.attachments.storagePath, f5));
+await db.update(schema.attachments).set({ deliveryId: maD2.id }).where(eq(schema.attachments.id, attMa5.id));
 await db.insert(schema.deliveryRequests).values([
   { deliveryId: ceD1.id, requestId: CE[1].id },
   { deliveryId: ceD2.id, requestId: CE[2].id }, { deliveryId: ceD2.id, requestId: CE[5].id },

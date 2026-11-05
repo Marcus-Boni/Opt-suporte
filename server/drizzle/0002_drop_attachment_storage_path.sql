@@ -1,0 +1,1 @@
+ALTER TABLE "attachments" DROP COLUMN "storage_path";

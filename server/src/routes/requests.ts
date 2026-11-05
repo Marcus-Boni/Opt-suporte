@@ -73,9 +73,18 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/attachments/:id', { schema: { tags: ['requests'], description: 'Download autorizado pelo escopo do cliente.', params: z.object({ id: z.string().uuid() }) } }, async (r, reply) => {
-    const { meta, stream } = await openAttachment(r.actor, r.params.id);
+    const { meta, data, inline } = await openAttachment(r.actor, r.params.id);
+    const etag = meta.sha256 ? `"${meta.sha256}"` : undefined;
+    // Conteúdo autorizado: cache só no navegador de quem baixou, revalidado pelo hash (304 sem reenviar os bytes).
+    reply.header('Cache-Control', 'private, no-cache');
+    if (etag) {
+      reply.header('ETag', etag);
+      if (r.headers['if-none-match'] === etag) return reply.status(304).send();
+    }
+    const ascii = meta.fileName.replace(/[^\x20-\x7e]/g, '_');
     reply.header('Content-Type', meta.mimeType);
-    reply.header('Content-Disposition', `inline; filename="${encodeURIComponent(meta.fileName)}"`);
-    return reply.send(stream);
+    reply.header('Content-Length', data.length);
+    reply.header('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(meta.fileName)}`);
+    return reply.send(data);
   });
 };

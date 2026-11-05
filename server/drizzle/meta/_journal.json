@@ -8,6 +8,20 @@
       "when": 1793719563122,
       "tag": "0000_fearless_sheva_callister",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793839054968,
+      "tag": "0001_attachment_contents",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793839063905,
+      "tag": "0002_drop_attachment_storage_path",
+      "breakpoints": true
     }
   ]
 }

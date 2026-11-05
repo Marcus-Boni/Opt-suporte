@@ -3,7 +3,10 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { app, clientBySlug, loginCookie, projectByCode, requestByNumber, TOKEN_CIDADE, actorFor } from './helpers.js';
 import { createMcpServer } from '../src/mcp/server.js';
-import { pool } from '../src/db/index.js';
+import { eq } from 'drizzle-orm';
+import { db, pool, schema } from '../src/db/index.js';
+import { contentMatchesType } from '../src/lib/files.js';
+import { assertDisposableDatabase, isLocalDatabase, poolConfig } from '../src/db/connection.js';
 import { parseWhatsApp, classify, similarity } from '../src/services/intake.js';
 
 let api: Awaited<ReturnType<typeof app>>;
@@ -245,6 +248,41 @@ describe('anexos (upload multipart)', () => {
     expect([400, 413]).toContain(tooBig.statusCode);
     const foreign = await api.inject({ method: 'POST', url: `/api/v1/requests/${ma8.id}/attachments`, headers: { cookie: joao, ...png.headers }, payload: png.body });
     expect(foreign.statusCode).toBe(404);
+  });
+
+  it('guarda o conteúdo no banco, devolve os mesmos bytes e revalida pelo hash (ETag/304)', async () => {
+    const ma8 = await requestByNumber(marcaId, 8);
+    const bytes = Buffer.from('linha 1\nlinha 2 com acentuação\n');
+    const txt = multipart('notas da reunião.txt', 'text/plain', bytes);
+    const up = await api.inject({ method: 'POST', url: `/api/v1/requests/${ma8.id}/attachments`, headers: { cookie: otavio, ...txt.headers }, payload: txt.body });
+    expect(up.statusCode).toBe(201);
+    const [row] = await db.select().from(schema.attachmentContents).where(eq(schema.attachmentContents.attachmentId, up.json().id));
+    expect(row.data.equals(bytes)).toBe(true);
+    const down = await api.inject({ method: 'GET', url: `/api/v1/attachments/${up.json().id}`, headers: { cookie: otavio } });
+    expect(down.rawPayload.equals(bytes)).toBe(true);
+    expect(down.headers['content-disposition']).toMatch(/^attachment; .*filename\*=UTF-8''notas%20da%20reuni%C3%A3o\.txt/);
+    const again = await api.inject({ method: 'GET', url: `/api/v1/attachments/${up.json().id}`, headers: { cookie: otavio, 'if-none-match': String(down.headers.etag) } });
+    expect(again.statusCode).toBe(304);
+  });
+
+  it('recusa arquivo cujo conteúdo não bate com o tipo declarado', async () => {
+    const ma8 = await requestByNumber(marcaId, 8);
+    const fake = multipart('foto.png', 'image/png', Buffer.from('<script>alert(1)</script>'));
+    const res = await api.inject({ method: 'POST', url: `/api/v1/requests/${ma8.id}/attachments`, headers: { cookie: otavio, ...fake.headers }, payload: fake.body });
+    expect(res.statusCode).toBe(400);
+    expect(contentMatchesType('application/pdf', Buffer.from('%PDF-1.7'))).toBe(true);
+    expect(contentMatchesType('text/csv', Buffer.from([0x61, 0x00, 0x62]))).toBe(false);
+  });
+});
+
+describe('travas de banco', () => {
+  it('reset, seed e testes recusam banco remoto sem confirmação explícita', () => {
+    const azure = 'postgresql://u:p@srv.postgres.database.azure.com:5432/opt-suporte?sslmode=require';
+    expect(isLocalDatabase('postgres://u:p@127.0.0.1:5434/x')).toBe(true);
+    expect(() => assertDisposableDatabase(azure, 'db:reset')).toThrow(/CONFIRM_DATABASE=opt-suporte/);
+    expect(poolConfig(azure).ssl).toEqual({ rejectUnauthorized: true });
+    expect(poolConfig('postgres://u:p@localhost:5434/x').ssl).toBe(false);
+    expect(poolConfig(azure).connectionString).not.toContain('sslmode');
   });
 });
 
