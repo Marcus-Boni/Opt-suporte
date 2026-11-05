@@ -15,7 +15,7 @@ Solicitações, entregas e evidências de cada cliente em um só lugar. Portal p
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-FF6B3D)
-![Tests](https://img.shields.io/badge/tests-46%20passing-2EA043)
+![Tests](https://img.shields.io/badge/tests-53%20passing-2EA043)
 
 [Visão geral](#visão-geral) · [Começando](#começando) · [Funcionalidades](#funcionalidades) · [Arquitetura](#arquitetura) · [API e MCP](#api-e-mcp) · [Design e motion](#design-e-motion) · [Testes](#testes)
 
@@ -132,7 +132,8 @@ pnpm db:migrate && pnpm db:seed
 - **Entregas e evidências:** uma entrega atende várias solicitações; evidências separadas em benefício observado, esperado e impacto medido (valor, unidade e fonte obrigatórios).
 - **Painéis:** abertas, concluídas, sem responsável, aguardando cliente, mediana de dias até concluir, série mensal e distribuição por origem e categoria.
 - **Apresentações executivas:** geradas por cliente, projetos e período; narrativa editável, modo tela cheia, exportação em PDF e compartilhamento com o portal.
-- **Acessos e API:** usuários, credenciais por cliente e trilha de auditoria.
+- **Login da equipe com Microsoft Entra ID:** quem é da Optsolv entra com a conta corporativa e vira colaborador sem clientes até um admin liberar; senha só para clientes e admins de emergência. Ver [`docs/ENTRA.md`](docs/ENTRA.md).
+- **Acessos e API:** usuários, papéis e clientes liberados, credenciais por cliente e trilha de auditoria.
 - **IA e integrações:** pré-visualização interativa do widget de suporte que vai dentro das soluções Optsolv, prompt padrão para um agente criá-lo, skill pronta para o Claude Code e comandos de conexão do MCP e da API.
 
 ### Experiência
@@ -249,10 +250,11 @@ A solicitação criada aparece no backoffice com a origem **API** (ou **Agente M
 pnpm test
 ```
 
-46 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
+53 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
 - isolamento entre clientes na API, no MCP e no download de anexos;
 - criação via API e MCP (em memória e por HTTP real), com idempotência e revogação de credencial;
 - integrações de cliente: autor informado pelo widget, limite de criação por credencial;
+- login com Microsoft Entra ID contra provedor OIDC simulado: PKCE, recusas por tenant, domínio e conta, bloqueio de senha e gestão de acesso;
 - upload com limites de tamanho e tipo;
 - concorrência e heurísticas da captura de WhatsApp;
 - anexos no banco (bytes íntegros, ETag/304, assinatura de arquivo) e travas contra banco remoto;
@@ -268,7 +270,7 @@ As jornadas de interface (D1 a D7) estão documentadas com capturas em [`docs/TE
 - Sem integração direta com o WhatsApp: a entrada é por colagem e revisão humana; a IA sugere, não grava.
 - PDF gerado pelo diálogo de impressão do navegador, não no servidor.
 - Permissões por cliente; colaboradores veem todos os projetos dos clientes vinculados.
-- Sem notificações por e-mail, SLA, registro de horas ou redefinição de senha.
+- Sem notificações por e-mail, SLA, registro de horas ou redefinição de senha (a equipe usa a conta Microsoft; clientes ainda dependem de um admin).
 - Anexos guardados no próprio Postgres (até 5 MB, com verificação de assinatura), sem antivírus nem CDN; o caminho natural de crescimento é o Azure Blob Storage.
 - Apresentações são instantâneos do período; dados novos pedem nova geração (o editor avisa).
 - Limites de uso (login: 10 erros por conta e 30 por IP a cada 15 min; captura: 20 análises por pessoa a cada 10 min; novas solicitações: 120 por identidade a cada 10 min) ficam em memória, por instância; com mais de uma instância, migrar para Redis. Em produção, o servidor recusa subir sem `SESSION_SECRET` e o seed recusa rodar.

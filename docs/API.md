@@ -8,7 +8,7 @@ Duas formas, verificadas em todas as rotas exceto `POST /auth/login`:
 
 | Forma | Como | Para quem |
 |---|---|---|
-| Sessão | `POST /auth/login` grava o cookie assinado `osx_session` (httpOnly, 7 dias) | Interface web |
+| Sessão | `POST /auth/login` (clientes) ou `GET /auth/entra/login` (equipe, Microsoft Entra ID; ver [ENTRA.md](ENTRA.md)) gravam o cookie assinado `osx_session` (httpOnly, 7 dias) | Interface web |
 | Credencial | `Authorization: Bearer osk_…` | Agentes, integrações, MCP |
 
 A identidade resolve um **ator** com papel (`admin_optsolv`, `colaborador_optsolv`, `cliente`) e a lista de clientes visíveis. Nenhum `clientId` enviado pelo chamador amplia esse escopo: ele só filtra. Recurso fora do escopo responde **404** `not_found`, sem revelar se existe.
