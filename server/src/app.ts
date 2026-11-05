@@ -27,7 +27,7 @@ declare module 'fastify' {
 export const SESSION_COOKIE = 'osx_session';
 
 export async function buildApp(opts: { logger?: boolean } = {}) {
-  const app = Fastify({ logger: opts.logger ?? env.NODE_ENV !== 'test', bodyLimit: 1024 * 1024 }).withTypeProvider<ZodTypeProvider>();
+  const app = Fastify({ logger: opts.logger ?? env.NODE_ENV !== 'test', bodyLimit: 1024 * 1024, trustProxy: (_addr, hop) => hop < env.TRUST_PROXY }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
@@ -62,6 +62,8 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof HttpError) {
+      const retry = (error.details as { retryAfterSeconds?: number } | undefined)?.retryAfterSeconds;
+      if (error.status === 429 && retry) reply.header('Retry-After', String(retry));
       return reply.status(error.status).send({ error: { code: error.code, message: error.message, details: error.details } });
     }
     if (hasZodFastifySchemaValidationErrors(error)) {

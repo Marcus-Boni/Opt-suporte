@@ -4,19 +4,12 @@ import { login, logout, userProfile } from '../auth/service.js';
 import { listClients } from '../services/clients.js';
 import { SESSION_COOKIE } from '../app.js';
 import { env } from '../env.js';
-import { HttpError } from '../lib/errors.js';
+import { createLimiter } from '../lib/rate-limit.js';
 
-// shortcut: contador em memória por processo, suficiente para uma instância; trocar por Redis ao escalar horizontalmente.
-const attempts = new Map<string, { n: number; until: number }>();
-const MAX_ATTEMPTS = 10, WINDOW_MS = 15 * 60_000;
-function checkAttempts(key: string) {
-  const a = attempts.get(key);
-  if (a && a.n >= MAX_ATTEMPTS && Date.now() < a.until) throw new HttpError(429, 'too_many_attempts', 'Muitas tentativas. Aguarde 15 minutos.');
-}
-function recordFailure(key: string) {
-  const a = attempts.get(key);
-  attempts.set(key, a && Date.now() < a.until ? { n: a.n + 1, until: a.until } : { n: 1, until: Date.now() + WINDOW_MS });
-}
+const MSG = 'Muitas tentativas de login. Aguarde alguns minutos e tente de novo.';
+// Senhas erradas por conta+IP (força bruta numa conta) e por IP (varredura de várias contas).
+const perAccount = createLimiter(10, 15 * 60_000, MSG);
+const perIp = createLimiter(30, 15 * 60_000, MSG);
 
 const cookieOpts = { path: '/', httpOnly: true, sameSite: 'lax' as const, signed: true, secure: env.NODE_ENV === 'production', maxAge: 7 * 86_400 };
 
@@ -26,10 +19,11 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     schema: { tags: ['auth'], security: [], body: z.object({ email: z.string().email(), password: z.string().min(1) }) },
   }, async (request, reply) => {
     const key = `${request.ip}|${request.body.email.toLowerCase()}`;
-    checkAttempts(key);
+    perIp.check(request.ip);
+    perAccount.check(key);
     let session: Awaited<ReturnType<typeof login>>;
-    try { session = await login(request.body.email, request.body.password); } catch (e) { recordFailure(key); throw e; }
-    attempts.delete(key);
+    try { session = await login(request.body.email, request.body.password); } catch (e) { perAccount.hit(key); perIp.hit(request.ip); throw e; }
+    perAccount.reset(key);
     const { sessionId, actor, user } = session;
     reply.setCookie(SESSION_COOKIE, sessionId, cookieOpts);
     return { user: { id: user.id, name: user.name, email: user.email, role: user.role, clientId: user.clientId }, clients: await listClients(actor) };

@@ -5,6 +5,9 @@ export const env = {
   PORT: Number(process.env.PORT ?? 4000),
   SESSION_SECRET: process.env.SESSION_SECRET ?? 'segredo-local-inseguro',
   NODE_ENV: process.env.NODE_ENV ?? 'development',
+  // Quantos proxies confiáveis há na frente da API (ex.: 1 no Azure Container Apps/App Service). Sem isso o IP real
+  // do cliente não chega e os limites de login valem para todos juntos. 0 = acesso direto.
+  TRUST_PROXY: Number(process.env.TRUST_PROXY ?? 0),
   // IA (Microsoft Foundry / Azure OpenAI). Sem endpoint, a captura usa só as heurísticas locais.
   AZURE_OPENAI_ENDPOINT: process.env.AZURE_OPENAI_ENDPOINT ?? '',
   AZURE_OPENAI_DEPLOYMENT: process.env.AZURE_OPENAI_DEPLOYMENT ?? 'gpt-6.1-sol', // escolhido pela avaliação (scripts/ai-eval.ts)

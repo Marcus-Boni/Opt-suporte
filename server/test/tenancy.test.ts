@@ -115,6 +115,29 @@ describe('apresentações e login (auditoria)', () => {
     expect(last).toBe(429);
   });
 
+  it('bloqueia o IP que erra senhas de várias contas (varredura), com Retry-After', async () => {
+    const remoteAddress = '203.0.113.7';
+    const statuses: number[] = [];
+    for (let i = 0; i < 31; i++) statuses.push((await api.inject({ method: 'POST', url: '/api/v1/auth/login', remoteAddress, payload: { email: `conta${i}@exemplo.com`, password: 'errada' } })).statusCode);
+    expect(statuses.slice(0, 30).every((s) => s === 401)).toBe(true);
+    const blocked = await api.inject({ method: 'POST', url: '/api/v1/auth/login', remoteAddress, payload: { email: 'admin@optsolv.demo', password: 'optsolv2026' } });
+    expect(blocked.statusCode).toBe(429);
+    expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
+    // Outro IP continua entrando normalmente.
+    expect((await api.inject({ method: 'POST', url: '/api/v1/auth/login', remoteAddress: '203.0.113.8', payload: { email: 'admin@optsolv.demo', password: 'optsolv2026' } })).statusCode).toBe(200);
+  });
+
+  it('limita as análises da captura por pessoa (custo da IA)', async () => {
+    const ana = (await loginCookie(api, 'ana@optsolv.demo')).cookie;
+    const send = () => api.inject({ method: 'POST', url: '/api/v1/intake/whatsapp-preview', headers: { cookie: ana }, payload: { clientId: cidadeId, text: '[03/11/2026, 08:11:00] Carlos: deu erro ao salvar' } });
+    for (let i = 0; i < 20; i++) expect((await send()).statusCode).toBe(200);
+    const res = await send();
+    expect(res.statusCode).toBe(429);
+    expect(res.json().error.code).toBe('too_many_requests');
+    // O limite é por identidade: outra pessoa não é afetada.
+    expect((await api.inject({ method: 'POST', url: '/api/v1/intake/whatsapp-preview', headers: { cookie: admin }, payload: { clientId: cidadeId, text: 'erro' } })).statusCode).toBe(200);
+  });
+
   it('cliente não escolhe o nome do autor da solicitação', async () => {
     const project = await projectByCode(cidadeId, 'GESTAO');
     const res = await api.inject({ method: 'POST', url: '/api/v1/requests', headers: { cookie: joao }, payload: { projectId: project.id, description: 'Teste de autoria forjada no pedido.', source: 'portal', authorLabel: 'Helena Prado (Optsolv)' } });
