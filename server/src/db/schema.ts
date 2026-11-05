@@ -46,6 +46,8 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   name: text('name').notNull(),
   passwordHash: text('password_hash').notNull(),
+  // Identificador imutável da pessoa no Microsoft Entra (claim oid); vincula o login sem depender do e-mail.
+  entraOid: text('entra_oid').unique(),
   role: roleEnum('role').notNull(),
   // cliente: tenant único. internos: ver memberships (admin enxerga todos).
   clientId: uuid('client_id').references(() => clients.id),

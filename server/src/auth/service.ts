@@ -1,12 +1,14 @@
 import { and, eq, gt, isNull, lt } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
-import { unauthorized } from '../lib/errors.js';
+import { HttpError, unauthorized } from '../lib/errors.js';
+import { env } from '../env.js';
+import { entraEnabled, isEntraDomain } from './entra-config.js';
 import { hashPassword, randomToken, sha256, verifyPassword } from './password.js';
 import type { Actor } from './actor.js';
 
 const SESSION_DAYS = 7;
 
-async function actorFromUser(user: typeof schema.users.$inferSelect): Promise<Actor> {
+export async function actorFromUser(user: typeof schema.users.$inferSelect): Promise<Actor> {
   let clientIds: Actor['clientIds'];
   if (user.role === 'admin_optsolv') clientIds = 'all';
   else if (user.role === 'cliente') clientIds = user.clientId ? [user.clientId] : [];
@@ -22,16 +24,28 @@ async function actorFromUser(user: typeof schema.users.$inferSelect): Promise<Ac
 let dummyHash: Promise<string> | undefined;
 
 export async function login(email: string, password: string) {
-  const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email.toLowerCase().trim()));
+  const normalized = email.toLowerCase().trim();
+  if (passwordBlocked(normalized)) throw new HttpError(403, 'use_microsoft', 'Contas da Optsolv entram com a Microsoft: use “Entrar com a Microsoft”.');
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.email, normalized));
   const ok = await verifyPassword(password, user?.passwordHash ?? (await (dummyHash ??= hashPassword(randomToken(16)))));
   if (!user || !user.isActive || !ok) {
     throw unauthorized('E-mail ou senha inválidos.');
   }
+  return createSession(user);
+}
+
+/** Sessão no mesmo formato para senha e Microsoft: cookie assinado, 7 dias, revogável. */
+export async function createSession(user: typeof schema.users.$inferSelect) {
   await db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, new Date()));
   const id = randomToken(32);
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000);
   await db.insert(schema.sessions).values({ id, userId: user.id, expiresAt });
   return { sessionId: id, actor: await actorFromUser(user), user };
+}
+
+/** Com o Entra ligado, e-mails dos domínios da Optsolv não usam senha (exceto admins de emergência). */
+function passwordBlocked(email: string) {
+  return entraEnabled() && isEntraDomain(email) && !env.EMERGENCY_ADMIN_EMAILS.includes(email);
 }
 
 export async function logout(sessionId: string) {

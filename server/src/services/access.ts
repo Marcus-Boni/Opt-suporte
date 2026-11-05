@@ -1,4 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { assertAdmin, type Actor, type Role } from '../auth/actor.js';
 import { hashPassword, randomToken, sha256 } from '../auth/password.js';
@@ -7,7 +7,7 @@ import { audit } from './audit.js';
 
 export async function listUsers(actor: Actor) {
   assertAdmin(actor);
-  const users = await db.select({ id: schema.users.id, name: schema.users.name, email: schema.users.email, role: schema.users.role, clientId: schema.users.clientId, isActive: schema.users.isActive, createdAt: schema.users.createdAt })
+  const users = await db.select({ id: schema.users.id, name: schema.users.name, email: schema.users.email, role: schema.users.role, clientId: schema.users.clientId, isActive: schema.users.isActive, createdAt: schema.users.createdAt, microsoft: sql<boolean>`${isNotNull(schema.users.entraOid)}` })
     .from(schema.users).orderBy(asc(schema.users.role), asc(schema.users.name));
   const memberships = await db.select().from(schema.memberships);
   return users.map((u) => ({ ...u, clientIds: u.role === 'cliente' ? (u.clientId ? [u.clientId] : []) : memberships.filter((m) => m.userId === u.id).map((m) => m.clientId) }));
@@ -39,6 +39,29 @@ export async function setUserActive(actor: Actor, id: string, isActive: boolean)
   if (!isActive) await db.delete(schema.sessions).where(eq(schema.sessions.userId, id));
   await audit(actor, isActive ? 'user.activate' : 'user.deactivate', 'user', id, user.clientId);
   return { id: user.id, isActive: user.isActive };
+}
+
+/** Admin muda o papel de alguém da equipe (colaborador ↔ admin) e os clientes que um colaborador enxerga. */
+export async function updateUserAccess(actor: Actor, id: string, input: { role?: 'admin_optsolv' | 'colaborador_optsolv'; clientIds?: string[] }) {
+  assertAdmin(actor);
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
+  if (!user) throw notFound('Usuário');
+  if (user.role === 'cliente') throw badRequest('Usuários de cliente não mudam de papel; crie um novo acesso.');
+  if (id === actor.id && input.role && input.role !== 'admin_optsolv') throw badRequest('Você não pode tirar o próprio papel de administrador.');
+  const clientIds = [...new Set(input.clientIds ?? [])];
+  if (clientIds.length) {
+    const found = await db.select({ id: schema.clients.id }).from(schema.clients).where(inArray(schema.clients.id, clientIds));
+    if (found.length !== clientIds.length) throw badRequest('Algum cliente informado não existe.');
+  }
+  await db.transaction(async (tx) => {
+    if (input.role) await tx.update(schema.users).set({ role: input.role }).where(eq(schema.users.id, id));
+    if (input.clientIds) {
+      await tx.delete(schema.memberships).where(eq(schema.memberships.userId, id));
+      if (clientIds.length) await tx.insert(schema.memberships).values(clientIds.map((clientId) => ({ userId: id, clientId })));
+    }
+  });
+  await audit(actor, 'user.access', 'user', id, null, { from: user.role, role: input.role ?? user.role, clients: input.clientIds ? clientIds.length : undefined });
+  return { id, role: input.role ?? user.role };
 }
 
 export async function listCredentials(actor: Actor) {
