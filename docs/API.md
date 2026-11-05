@@ -22,7 +22,7 @@ curl -H "Authorization: Bearer $OPTSOLV_API_TOKEN" http://localhost:4000/api/v1/
 
 ## Erros
 
-Sempre `{ "error": { "code", "message", "details?" } }`. Códigos: `validation` (400), `bad_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `file_too_large` (413), `internal` (500).
+Sempre `{ "error": { "code", "message", "details?" } }`. Códigos: `validation` (400), `bad_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `file_too_large` (413), `too_many_requests` / `too_many_attempts` (429, com header `Retry-After`), `internal` (500).
 
 ## Rotas
 
@@ -38,7 +38,7 @@ Sempre `{ "error": { "code", "message", "details?" } }`. Códigos: `validation` 
 | POST | `/projects` | interno | `clientId`, `name`, `code?` |
 | GET | `/team` | interno | equipe para atribuição |
 | GET | `/requests` | todos | filtros: `clientId`, `projectId`, `status` (vírgula), `category`, `priority`, `source`, `assigneeUserId`, `unassigned`, `open`, `search`, `from`, `to`, `page`, `pageSize` |
-| POST | `/requests` | todos | `projectId`, `description`, `title?`, `category?`, `priority?`; header `Idempotency-Key` opcional; origem inferida (`portal`, `admin`, `api`) |
+| POST | `/requests` | todos | `projectId`, `description`, `title?`, `category?`, `priority?`, `authorLabel?`; header `Idempotency-Key` opcional; origem inferida (`portal`, `admin`, `api`). `authorLabel`: a equipe informa o remetente; uma credencial de cliente (widget) informa quem reportou, gravado como `Nome (via Agente: credencial)`; no portal é ignorado. Limite: 120 novas a cada 10 min por identidade |
 | GET | `/requests/{id}` | todos | cliente recebe só comentários públicos, eventos públicos e entregas publicadas |
 | PATCH | `/requests/{id}` | todos | interno: `status`, `assigneeUserId`, `category`, `priority`, `title`, `description`, `note`; cliente: apenas reabrir (`status: "nova"` + `reason`) |
 | POST | `/requests/{id}/comments` | todos | `body`, `visibility` (`internal` só para internos; cliente é forçado a `public`) |
@@ -64,6 +64,10 @@ Sempre `{ "error": { "code", "message", "details?" } }`. Códigos: `validation` 
 | GET/POST | `/users`, PATCH `/users/{id}` | admin | criação e ativação |
 | GET/POST | `/credentials`, DELETE `/credentials/{id}` | admin | token exibido só na criação |
 | GET | `/audit?limit=` | admin | trilha de auditoria |
+
+## Widget nas soluções
+
+O widget de suporte dentro das soluções Optsolv usa esta API pelo backend da própria solução (o token nunca vai ao navegador), com uma credencial de papel **Usuário do cliente**. Contrato completo, interface e critérios de aceite em [`web/public/integracoes/skills/optsolv-suporte-widget/especificacao.md`](../web/public/integracoes/skills/optsolv-suporte-widget/especificacao.md), também publicado pela própria plataforma em `/integracoes/skills/optsolv-suporte-widget/` (prompt padrão e skill na tela **IA e integrações**).
 
 ## Exemplos
 

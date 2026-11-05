@@ -15,7 +15,7 @@ Solicitações, entregas e evidências de cada cliente em um só lugar. Portal p
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-FF6B3D)
-![Tests](https://img.shields.io/badge/tests-43%20passing-2EA043)
+![Tests](https://img.shields.io/badge/tests-46%20passing-2EA043)
 
 [Visão geral](#visão-geral) · [Começando](#começando) · [Funcionalidades](#funcionalidades) · [Arquitetura](#arquitetura) · [API e MCP](#api-e-mcp) · [Design e motion](#design-e-motion) · [Testes](#testes)
 
@@ -116,6 +116,7 @@ pnpm db:migrate && pnpm db:seed
 | `pnpm mcp` | Servidor MCP via STDIO (lê `OPTSOLV_API_TOKEN`) |
 | `pnpm --filter server ai:eval` | Avalia a IA da captura contra o conjunto rotulado (chama o Foundry) |
 | `pnpm --filter server mcp:demo` | Cliente MCP de exemplo: lista ferramentas, cria solicitação e consulta valor |
+| `pnpm --filter server e2e` | Ponta a ponta contra a API rodando: API REST, MCP STDIO e MCP HTTP, ciclo de um widget (só local) |
 
 ## Funcionalidades
 
@@ -132,6 +133,7 @@ pnpm db:migrate && pnpm db:seed
 - **Painéis:** abertas, concluídas, sem responsável, aguardando cliente, mediana de dias até concluir, série mensal e distribuição por origem e categoria.
 - **Apresentações executivas:** geradas por cliente, projetos e período; narrativa editável, modo tela cheia, exportação em PDF e compartilhamento com o portal.
 - **Acessos e API:** usuários, credenciais por cliente e trilha de auditoria.
+- **IA e integrações:** pré-visualização interativa do widget de suporte que vai dentro das soluções Optsolv, prompt padrão para um agente criá-lo, skill pronta para o Claude Code e comandos de conexão do MCP e da API.
 
 ### Experiência
 - Tema claro, escuro e "seguir o sistema", com transição em chevron (View Transitions).
@@ -216,7 +218,8 @@ flowchart LR
 Documentação completa em [`docs/API.md`](docs/API.md), [`docs/MCP.md`](docs/MCP.md) e [`docs/DATABASE.md`](docs/DATABASE.md).
 
 - **API REST v1:** 40 rotas em `/api/v1`, OpenAPI em `/docs`, sessão por cookie **ou** `Authorization: Bearer osk_…`, envelope de erro uniforme, `Idempotency-Key` nas criações, paginação e filtros.
-- **MCP:** servidor STDIO com 10 ferramentas concretas (schemas Zod), autenticado por credencial e limitado ao escopo dela.
+- **MCP:** 10 ferramentas concretas (schemas Zod) em dois transportes: **HTTP remoto** em `/api/v1/mcp` (agentes conectam com Bearer, sem acesso ao banco) e STDIO local. Autenticado por credencial e limitado ao escopo dela.
+- **Widget nas soluções:** o backend da solução registra pela API com uma credencial de cliente; quem reportou fica gravado como `Nome (via Agente: credencial)`. Especificação em [`especificacao.md`](web/public/integracoes/skills/optsolv-suporte-widget/especificacao.md) e skill em [`SKILL.md`](web/public/integracoes/skills/optsolv-suporte-widget/SKILL.md).
 
 O token (`osk_…`) vem de uma credencial criada em **Acessos e API**; o banco guarda só o hash.
 
@@ -246,14 +249,17 @@ A solicitação criada aparece no backoffice com a origem **API** (ou **Agente M
 pnpm test
 ```
 
-43 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
+46 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
 - isolamento entre clientes na API, no MCP e no download de anexos;
-- criação via API e MCP, com idempotência;
+- criação via API e MCP (em memória e por HTTP real), com idempotência e revogação de credencial;
+- integrações de cliente: autor informado pelo widget, limite de criação por credencial;
 - upload com limites de tamanho e tipo;
 - concorrência e heurísticas da captura de WhatsApp;
 - anexos no banco (bytes íntegros, ETag/304, assinatura de arquivo) e travas contra banco remoto;
 - IA da captura com modelo simulado: validação da saída, filtro de conteúdo, mascaramento de dados pessoais e fallback;
 - limites de uso: senhas erradas por conta e por IP (com `Retry-After`) e análises da captura por pessoa.
+
+Com a API rodando, `pnpm --filter server e2e` faz 19 verificações de ponta a ponta pela rede: API REST, MCP STDIO (subprocesso) e MCP HTTP, simulando o ciclo de um widget (credencial de cliente, solicitação, anexo, comentário e revogação). Só roda contra API e banco locais.
 
 As jornadas de interface (D1 a D7) estão documentadas com capturas em [`docs/TESTES.md`](docs/TESTES.md).
 
@@ -265,7 +271,7 @@ As jornadas de interface (D1 a D7) estão documentadas com capturas em [`docs/TE
 - Sem notificações por e-mail, SLA, registro de horas ou redefinição de senha.
 - Anexos guardados no próprio Postgres (até 5 MB, com verificação de assinatura), sem antivírus nem CDN; o caminho natural de crescimento é o Azure Blob Storage.
 - Apresentações são instantâneos do período; dados novos pedem nova geração (o editor avisa).
-- Limites de uso (login: 10 erros por conta e 30 por IP a cada 15 min; captura: 20 análises por pessoa a cada 10 min) ficam em memória, por instância; com mais de uma instância, migrar para Redis. Em produção, o servidor recusa subir sem `SESSION_SECRET` e o seed recusa rodar.
+- Limites de uso (login: 10 erros por conta e 30 por IP a cada 15 min; captura: 20 análises por pessoa a cada 10 min; novas solicitações: 120 por identidade a cada 10 min) ficam em memória, por instância; com mais de uma instância, migrar para Redis. Em produção, o servidor recusa subir sem `SESSION_SECRET` e o seed recusa rodar.
 
 ---
 

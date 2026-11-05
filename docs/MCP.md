@@ -1,12 +1,43 @@
 # Servidor MCP
 
-`server/src/mcp/index.ts` sobe um servidor **Model Context Protocol** por STDIO, construído com o SDK oficial (`@modelcontextprotocol/sdk`) sobre os mesmos serviços da API. Não há versão HTTP exposta: o servidor roda localmente, acoplado ao banco, e cada chamada passa pelas mesmas verificações de escopo de cliente.
+Servidor **Model Context Protocol** construído com o SDK oficial (`@modelcontextprotocol/sdk`) sobre os mesmos serviços da API, em dois transportes:
+
+- **HTTP remoto** em `/api/v1/mcp` (Streamable HTTP, sem estado): o recomendado para agentes. Conecta com `Authorization: Bearer osk_…`, sem acesso ao banco nem ao código.
+- **STDIO** (`server/src/mcp/index.ts`): para quem roda o repositório localmente, acoplado ao banco.
+
+Nos dois, cada chamada passa pelas mesmas verificações de escopo de cliente. A tela **IA e integrações** mostra os comandos prontos com o endereço do ambiente.
 
 ## Autenticação e escopo
 
 O servidor exige `OPTSOLV_API_TOKEN` com uma credencial criada em **Acessos e API** (o banco guarda só o hash). A credencial define o papel e o cliente de escopo; o agente só enxerga e escreve dentro dele. Ferramentas chamadas fora do escopo retornam `isError: true` com `not_found`.
 
-## Rodar
+## MCP remoto (HTTP)
+
+Claude Code:
+
+```bash
+claude mcp add --transport http optsolv-suporte https://<host>/api/v1/mcp --header "Authorization: Bearer $OPTSOLV_API_TOKEN"
+```
+
+Ou no `.mcp.json` do projeto, com o token vindo do ambiente:
+
+```json
+{
+  "mcpServers": {
+    "optsolv-suporte": {
+      "type": "http",
+      "url": "https://<host>/api/v1/mcp",
+      "headers": { "Authorization": "Bearer ${OPTSOLV_API_TOKEN}" }
+    }
+  }
+}
+```
+
+- Só credenciais de API: sessão de navegador recebe 403. `GET` e `DELETE` respondem 405 (não há sessões nem stream do servidor).
+- Revogar a credencial em **Acessos e API** corta o acesso na próxima chamada.
+- `create_request` segue o mesmo limite da API (120 novas a cada 10 minutos por credencial). Para registro automático, use `idempotencyKey` com o id do evento de origem.
+
+## MCP local (STDIO)
 
 ```bash
 pnpm mcp
