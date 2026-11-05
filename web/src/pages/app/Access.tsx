@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, Plus, Copy, ShieldCheck, Bot } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -8,6 +8,8 @@ import type { AuditRow, Credential, Role, UserRow } from '@/lib/types';
 import { Badge, Button, Card, CardContent, Checkbox, Confirm, Dialog, ErrorState, Field, Input, Label, SimpleSelect, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, cx } from '@/components/ui';
 import { RowsSkeleton } from '@/components/skeletons';
 import { Tip } from '@/components/ui/tooltip';
+import { PasswordField } from '@/components/password-field';
+import { Link } from 'react-router';
 import { toast } from '@/lib/toast';
 
 const ROLE_OPTIONS = Object.entries(ROLE).map(([value, label]) => ({ value, label }));
@@ -26,6 +28,13 @@ export function AccessPage() {
   const [token, setToken] = useState<string | null>(null);
   const clientName = (id: string | null) => me.clients.find((c) => c.id === id)?.name ?? '—';
   const clientOptions = me.clients.map((c) => ({ value: c.id, label: c.name }));
+  const [who, setWho] = useState({ name: '', email: '' });
+  const hints = useMemo(() => [who.name, who.email.split('@')[0]], [who]);
+  const noClients = me.clients.length === 0;
+  const addClient = <Link to="/app/clientes" className="link">Cadastrar cliente</Link>;
+  // Papel que exige cliente sem nenhum cadastrado: o formulário explica e não envia.
+  const userBlocked = noClients && role !== 'admin_optsolv';
+  const credBlocked = noClients && credRole !== 'admin_optsolv';
 
   const createUser = useMutation({ mutationFn: (b: Record<string, unknown>) => api.post('/users', b), onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); qc.invalidateQueries({ queryKey: ['audit'] }); setUserOpen(false); toast.ok('Usuário criado.'); }, onError: (e) => toast.bad(e.message) });
   const toggleUser = useMutation({ mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => api.patch(`/users/${id}`, { isActive }), onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }), onError: (e) => toast.bad(e.message) });
@@ -40,7 +49,7 @@ export function AccessPage() {
       <header className="rise mb-6 md:mb-8"><h1 className="text-4xl md:text-5xl font-semibold tracking-tight">Acessos e API</h1><p className="mt-2 text-md text-ink-3 max-w-[64ch]">Usuários do backoffice e do portal, credenciais para API/MCP e trilha de auditoria. A documentação OpenAPI está em <a className="link" href="/docs" target="_blank" rel="noreferrer">/docs</a>.</p></header>
 
       <Card className={cx(section, 'rise')}><CardContent className="p-5 md:p-6">
-        <div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">Usuários</h2><Button size="sm" icon={<Plus />} onClick={() => setUserOpen(true)}>Novo usuário</Button></div>
+        <div className="flex items-center justify-between mb-3"><h2 className="text-lg font-semibold">Usuários</h2><Button size="sm" icon={<Plus />} onClick={() => { setWho({ name: '', email: '' }); setUserOpen(true); }}>Novo usuário</Button></div>
         {users.isLoading ? <RowsSkeleton bare rows={4} code={false} /> : (
           <Table className="text-sm min-w-[640px]">
             <TableHeader><TableRow className="text-xs uppercase tracking-wide text-ink-4 hover:bg-transparent"><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Papel</TableHead><TableHead>Escopo</TableHead><TableHead /></TableRow></TableHeader>
@@ -88,22 +97,25 @@ export function AccessPage() {
 
       <Dialog open={userOpen} onClose={() => setUserOpen(false)} title="Novo usuário">
         <form className="grid gap-4" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); createUser.mutate({ name: f.get('name'), email: f.get('email'), password: f.get('password'), role, clientId: role === 'cliente' ? f.get('clientId') : undefined, clientIds: role === 'colaborador_optsolv' ? f.getAll('clientIds') : undefined }); }}>
-          <Field label="Nome"><Input name="name" required minLength={2} autoFocus /></Field>
-          <Field label="E-mail"><Input name="email" type="email" required /></Field>
-          <Field label="Senha inicial" hint="Mínimo 12 caracteres. Envie à pessoa por um canal seguro."><Input name="password" type="text" autoComplete="new-password" required minLength={12} /></Field>
+          <Field label="Nome"><Input name="name" required minLength={2} autoFocus autoComplete="off" placeholder="Ex.: Maria Souza" onChange={(e) => setWho((w) => ({ ...w, name: e.target.value }))} /></Field>
+          <Field label="E-mail"><Input name="email" type="email" required autoComplete="off" placeholder="nome@empresa.com.br" onChange={(e) => setWho((w) => ({ ...w, email: e.target.value }))} /></Field>
+          <Field label="Senha inicial" hint="Envie à pessoa por um canal seguro; ela poderá trocar depois."><PasswordField name="password" label="Senha inicial" hints={hints} /></Field>
           <Field label="Papel"><SimpleSelect value={role} onValueChange={(v) => setRole(v as Role)} options={ROLE_OPTIONS} /></Field>
-          {role === 'cliente' && <Field label="Cliente"><SimpleSelect name="clientId" required defaultValue={me.clients[0]?.id} options={clientOptions} /></Field>}
-          {role === 'colaborador_optsolv' && <div><span className="label">Clientes autorizados</span><div className="grid gap-2">{me.clients.map((c) => <Label key={c.id} className="flex items-center gap-2"><Checkbox name="clientIds" value={c.id} defaultChecked />{c.name}</Label>)}</div></div>}
-          <div className="flex justify-end gap-2 pt-1"><Button type="button" variant="secondary" onClick={() => setUserOpen(false)}>Cancelar</Button><Button type="submit" loading={createUser.isPending}>Criar</Button></div>
+          {role === 'cliente' && <Field label="Cliente"><SimpleSelect name="clientId" required defaultValue={me.clients[0]?.id} options={clientOptions} placeholder="Escolha o cliente" empty="Nenhum cliente cadastrado" emptyAction={addClient} /></Field>}
+          {role === 'colaborador_optsolv' && <div><span className="label">Clientes autorizados</span>{noClients
+            ? <p className="fade-in flex items-center justify-between gap-3 rounded-lg border border-dashed border-line-2 bg-paper-2/60 px-3.5 py-2.5 text-sm text-ink-4">Nenhum cliente cadastrado ainda.<span className="font-semibold">{addClient}</span></p>
+            : <div className="grid gap-2">{me.clients.map((c) => <Label key={c.id} className="flex items-center gap-2"><Checkbox name="clientIds" value={c.id} defaultChecked />{c.name}</Label>)}</div>}</div>}
+          {userBlocked && <p role="status" className="text-sm text-ink-3">Para criar {role === 'cliente' ? 'um usuário de cliente' : 'um colaborador'}, cadastre antes o cliente que ele vai acessar.</p>}
+          <div className="flex justify-end gap-2 pt-1"><Button type="button" variant="secondary" onClick={() => setUserOpen(false)}>Cancelar</Button><Button type="submit" loading={createUser.isPending} disabled={userBlocked}>Criar</Button></div>
         </form>
       </Dialog>
 
       <Dialog open={credOpen} onClose={() => setCredOpen(false)} title="Nova credencial de agente">
         <form className="grid gap-4" onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); createCred.mutate({ name: f.get('name'), role: credRole, clientId: credRole === 'admin_optsolv' ? undefined : f.get('clientId') }); }}>
-          <Field label="Nome" hint="Ex.: Agente de triagem · Cidade"><Input name="name" required minLength={2} autoFocus /></Field>
+          <Field label="Nome" hint="Identifica quem usa o token na auditoria."><Input name="name" required minLength={2} autoFocus placeholder="Ex.: Agente de triagem · Cidade" /></Field>
           <Field label="Papel"><SimpleSelect value={credRole} onValueChange={(v) => setCredRole(v as Role)} options={ROLE_OPTIONS} /></Field>
-          {credRole !== 'admin_optsolv' && <Field label="Escopo (cliente)"><SimpleSelect name="clientId" required defaultValue={me.clients[0]?.id} options={clientOptions} /></Field>}
-          <div className="flex justify-end gap-2 pt-1"><Button type="button" variant="secondary" onClick={() => setCredOpen(false)}>Cancelar</Button><Button type="submit" loading={createCred.isPending}>Gerar token</Button></div>
+          {credRole !== 'admin_optsolv' && <Field label="Escopo (cliente)"><SimpleSelect name="clientId" required defaultValue={me.clients[0]?.id} options={clientOptions} placeholder="Escolha o cliente" empty="Nenhum cliente cadastrado" emptyAction={addClient} /></Field>}
+          <div className="flex justify-end gap-2 pt-1"><Button type="button" variant="secondary" onClick={() => setCredOpen(false)}>Cancelar</Button><Button type="submit" loading={createCred.isPending} disabled={credBlocked}>Gerar token</Button></div>
         </form>
       </Dialog>
 
