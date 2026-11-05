@@ -15,7 +15,7 @@ Solicitações, entregas e evidências de cada cliente em um só lugar. Portal p
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-FF6B3D)
-![Tests](https://img.shields.io/badge/tests-41%20passing-2EA043)
+![Tests](https://img.shields.io/badge/tests-43%20passing-2EA043)
 
 [Visão geral](#visão-geral) · [Começando](#começando) · [Funcionalidades](#funcionalidades) · [Arquitetura](#arquitetura) · [API e MCP](#api-e-mcp) · [Design e motion](#design-e-motion) · [Testes](#testes)
 
@@ -106,7 +106,7 @@ pnpm db:migrate && pnpm db:seed
 
 ### Contas de demonstração (só no ambiente local)
 
-Todas com a senha `optsolv2026`.
+Todas com a senha `optsolv2026`. Os atalhos dessas contas aparecem no login só em `pnpm dev` (ou num build com `VITE_DEMO_LOGIN=true`); em produção a tela pede apenas e-mail e senha.
 
 | E-mail | Pessoa fictícia | Papel | Enxerga |
 |---|---|---|---|
@@ -268,13 +268,14 @@ A solicitação criada aparece no backoffice com a origem **API** (ou **Agente M
 pnpm test
 ```
 
-41 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
+43 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
 - isolamento entre clientes na API, no MCP e no download de anexos;
 - criação via API e MCP, com idempotência;
 - upload com limites de tamanho e tipo;
 - concorrência e heurísticas da captura de WhatsApp;
 - anexos no banco (bytes íntegros, ETag/304, assinatura de arquivo) e travas contra banco remoto;
-- IA da captura com modelo simulado: validação da saída, filtro de conteúdo, mascaramento de dados pessoais e fallback.
+- IA da captura com modelo simulado: validação da saída, filtro de conteúdo, mascaramento de dados pessoais e fallback;
+- limites de uso: senhas erradas por conta e por IP (com `Retry-After`) e análises da captura por pessoa.
 
 As jornadas de interface (D1 a D7) estão documentadas com capturas em [`docs/TESTES.md`](docs/TESTES.md).
 
@@ -286,7 +287,7 @@ As jornadas de interface (D1 a D7) estão documentadas com capturas em [`docs/TE
 - Sem notificações por e-mail, SLA, registro de horas ou redefinição de senha.
 - Anexos guardados no próprio Postgres (até 5 MB, com verificação de assinatura), sem antivírus nem CDN; o caminho natural de crescimento é o Azure Blob Storage.
 - Apresentações são instantâneos do período; dados novos pedem nova geração (o editor avisa).
-- Limite de tentativas de login em memória. Em produção, o servidor recusa subir sem `SESSION_SECRET` e o seed recusa rodar.
+- Limites de uso (login: 10 erros por conta e 30 por IP a cada 15 min; captura: 20 análises por pessoa a cada 10 min) ficam em memória, por instância; com mais de uma instância, migrar para Redis. Em produção, o servidor recusa subir sem `SESSION_SECRET` e o seed recusa rodar.
 
 ---
 
