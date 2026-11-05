@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Actor } from '../auth/actor.js';
 import { HttpError } from '../lib/errors.js';
 import { listClients, listProjects } from '../services/clients.js';
-import { addComment, createRequest, getRequest, listRequests, REQUEST_CATEGORIES, REQUEST_PRIORITIES, REQUEST_STATUSES } from '../services/requests.js';
+import { addComment, createRequest, createRequestLimit, getRequest, listRequests, REQUEST_CATEGORIES, REQUEST_PRIORITIES, REQUEST_STATUSES } from '../services/requests.js';
 import { createDelivery, linkRequests } from '../services/deliveries.js';
 import { metricsSummary } from '../services/metrics.js';
 import { generatePresentation } from '../services/presentations.js';
@@ -13,7 +13,7 @@ import { generatePresentation } from '../services/presentations.js';
  * Toda ferramenta recebe o ator já resolvido a partir da credencial; o escopo de clientes é imposto pelos serviços.
  */
 export function createMcpServer(actor: Actor) {
-  const server = new McpServer({ name: 'optsolv-experience', version: '1.0.0' });
+  const server = new McpServer({ name: 'optsolv-suporte', version: '1.0.0' });
 
   const ok = (summary: string, data: unknown) => ({ content: [{ type: 'text' as const, text: `${summary}\n\n${JSON.stringify(data, null, 2)}` }], structuredContent: data as Record<string, unknown> });
   const run = async <T,>(fn: () => Promise<T>, summarize: (r: T) => string) => {
@@ -56,7 +56,7 @@ export function createMcpServer(actor: Actor) {
       projectId: uuid, description: z.string().min(5).max(5000), title: z.string().max(140).optional(),
       category: z.enum(REQUEST_CATEGORIES).optional(), priority: z.enum(REQUEST_PRIORITIES).optional(), idempotencyKey: z.string().max(120).optional(),
     },
-  }, async (input) => run(() => createRequest(actor, { ...input, source: 'mcp' }), (r) => `${r.replayed ? 'Já existia' : 'Criada'}: ${r.request.clientCode}-${r.request.number} · ${r.request.title}`));
+  }, async (input) => run(() => { createRequestLimit.check(actor.id); createRequestLimit.hit(actor.id); return createRequest(actor, { ...input, source: 'mcp' }); }, (r) => `${r.replayed ? 'Já existia' : 'Criada'}: ${r.request.clientCode}-${r.request.number} · ${r.request.title}`));
 
   server.registerTool('add_request_comment', {
     title: 'Comentar solicitação', description: 'Adiciona comentário público ou interno (interno só para credenciais da equipe Optsolv).',

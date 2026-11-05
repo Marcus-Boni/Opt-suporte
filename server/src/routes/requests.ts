@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { addComment, deleteComment, createRequest, getRequest, listRequests, recordAttachmentEvent, requestForAttachment, updateRequest, REQUEST_CATEGORIES, REQUEST_PRIORITIES, REQUEST_SOURCES, REQUEST_STATUSES } from '../services/requests.js';
+import { addComment, deleteComment, createRequest, createRequestLimit, getRequest, listRequests, recordAttachmentEvent, requestForAttachment, updateRequest, REQUEST_CATEGORIES, REQUEST_PRIORITIES, REQUEST_SOURCES, REQUEST_STATUSES } from '../services/requests.js';
 import { openAttachment, storeUpload } from '../lib/files.js';
 import { badRequest } from '../lib/errors.js';
 import { isInternal } from '../auth/actor.js';
@@ -26,7 +26,7 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post('/requests', {
     schema: {
-      tags: ['requests'], description: 'Cria solicitação. O cliente é derivado do projeto e validado contra o escopo do ator. Aceita header Idempotency-Key.',
+      tags: ['requests'], description: 'Cria solicitação. O cliente é derivado do projeto e validado contra o escopo do ator. Aceita header Idempotency-Key. `authorLabel`: a equipe informa o remetente; uma credencial de cliente (ex.: widget) informa quem reportou, gravado como "Nome (via Agente: credencial)". Limite: 120 novas a cada 10 minutos por identidade (429 com Retry-After).',
       headers: z.object({ 'idempotency-key': z.string().max(120).optional() }),
       body: z.object({
         projectId: z.string().uuid(), title: z.string().max(140).optional(), description: z.string().min(5).max(5000),
@@ -36,6 +36,8 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
   }, async (r, reply) => {
     const source = r.body.source ?? (r.actor.kind === 'credential' ? 'api' : isInternal(r.actor) ? 'admin' : 'portal');
     if (!isInternal(r.actor) && source !== 'portal' && r.actor.kind !== 'credential') throw badRequest('Origem inválida.');
+    createRequestLimit.check(r.actor.id);
+    createRequestLimit.hit(r.actor.id);
     const { request, replayed } = await createRequest(r.actor, { ...r.body, source, idempotencyKey: r.headers['idempotency-key'] });
     return reply.status(replayed ? 200 : 201).send(request);
   });

@@ -4,6 +4,7 @@ import { db, schema } from '../db/index.js';
 import { actorKey, assertClient, assertInternal, isInternal, visibleClientIds, type Actor } from '../auth/actor.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { audit } from './audit.js';
+import { createLimiter } from '../lib/rate-limit.js';
 import { getProject } from './clients.js';
 
 export const REQUEST_STATUSES = ['nova', 'em_triagem', 'planejada', 'em_andamento', 'aguardando_cliente', 'concluida', 'cancelada'] as const;
@@ -112,6 +113,19 @@ export function deriveTitle(description: string) {
   return clean.length > 72 ? clean.slice(0, 69).trimEnd() + '…' : clean || 'Solicitação sem título';
 }
 
+/** Novas solicitações por identidade (pessoa ou credencial): contém integração com defeito ou abuso. Aplicado na API e no MCP. */
+export const createRequestLimit = createLimiter(120, 10 * 60_000, 'Limite de novas solicitações atingido (120 a cada 10 minutos). Aguarde alguns minutos e tente de novo.');
+
+/** Quem aparece como autor: a equipe informa o remetente (ex.: captura de WhatsApp); uma integração de cliente
+ * (ex.: widget numa solução Optsolv) informa quem reportou, sempre marcado com o canal; no portal, sempre a própria pessoa. */
+function authorFor(actor: Actor, reporter?: string) {
+  const name = reporter?.trim();
+  if (!name) return actor.label;
+  if (isInternal(actor)) return name;
+  if (actor.kind === 'credential') return `${name} (via ${actor.label})`;
+  return actor.label;
+}
+
 export async function createRequest(actor: Actor, input: CreateRequestInput) {
   if (!isInternal(actor) && !['portal', 'api', 'mcp'].includes(input.source)) throw badRequest('Origem inválida para este usuário.');
   const project = await getProject(actor, input.projectId);
@@ -132,8 +146,7 @@ export async function createRequest(actor: Actor, input: CreateRequestInput) {
       clientId: project.clientId, projectId: project.id, number: next,
       title: (input.title?.trim() || deriveTitle(description)).slice(0, 140), description,
       category: input.category ?? 'melhoria', priority: input.priority ?? 'media', status: 'nova', source: input.source,
-      // Nome do autor só pode ser informado pela equipe (ex.: remetente da captura de WhatsApp); cliente nunca se passa por outro.
-      authorUserId: actor.userId, authorLabel: (isInternal(actor) && input.authorLabel?.trim()) || actor.label,
+      authorUserId: actor.userId, authorLabel: authorFor(actor, input.authorLabel),
       sourceMessageId: input.sourceMessageId, sourceExcerpt: input.sourceExcerpt,
     }).returning();
     await tx.insert(schema.requestEvents).values({ requestId: req.id, actorLabel: req.authorLabel, type: 'criada', toValue: input.source, isPublic: true });

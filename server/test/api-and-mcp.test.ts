@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { app, clientBySlug, loginCookie, projectByCode, requestByNumber, TOKEN_CIDADE, actorFor } from './helpers.js';
 import { createMcpServer } from '../src/mcp/server.js';
 import { eq } from 'drizzle-orm';
@@ -193,6 +194,66 @@ describe('MCP (D6) — mesmas regras, mesmo banco', () => {
       const summary = await client.callTool({ name: 'get_value_summary', arguments: {} });
       expect((summary.structuredContent as { clients: unknown[] }).clients).toHaveLength(1);
     } finally { await close(); }
+  });
+});
+
+describe('integrações de cliente: widget e MCP remoto', () => {
+  /** Credencial de menor privilégio para um widget: papel cliente, escopo de um cliente só. */
+  async function widgetToken(clientId: string, name: string) {
+    const res = await api.inject({ method: 'POST', url: '/api/v1/credentials', headers: { cookie: admin }, payload: { name, role: 'cliente', clientId } });
+    expect(res.statusCode).toBe(201);
+    return res.json() as { id: string; token: string };
+  }
+
+  it('widget informa quem reportou; o autor fica marcado com o canal e o portal não pode fazer o mesmo', async () => {
+    const { token } = await widgetToken(cidadeId, 'Widget App de Campo');
+    const project = await projectByCode(cidadeId, 'CAMPO');
+    const res = await api.inject({ method: 'POST', url: '/api/v1/requests', headers: { authorization: `Bearer ${token}` }, payload: { projectId: project.id, description: 'Aberta pelo widget: foto não sobe sem sinal de internet.', category: 'problema', authorLabel: 'Carlos Mendes' } });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ source: 'api', authorLabel: 'Carlos Mendes (via Agente: Widget App de Campo)' });
+    const portal = await api.inject({ method: 'POST', url: '/api/v1/requests', headers: { cookie: joao }, payload: { projectId: project.id, description: 'Pelo portal tentando assinar como outra pessoa.', authorLabel: 'Helena Prado' } });
+    expect(portal.json().authorLabel).toBe('João Pereira');
+  });
+
+  it('limita novas solicitações por credencial (429 com Retry-After)', async () => {
+    const { token } = await widgetToken(cidadeId, 'Widget com defeito');
+    const project = await projectByCode(cidadeId, 'CAMPO');
+    const send = () => api.inject({ method: 'POST', url: '/api/v1/requests', headers: { authorization: `Bearer ${token}` }, payload: { projectId: project.id, description: 'Envio repetido de um widget com defeito.' } });
+    for (let i = 0; i < 120; i++) expect((await send()).statusCode).toBe(201);
+    const blocked = await send();
+    expect(blocked.statusCode).toBe(429);
+    expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
+  });
+
+  it('MCP por HTTP: agente conecta com Bearer, cria solicitação e perde o acesso ao revogar a credencial', async () => {
+    const http = await app();
+    const base = await http.listen({ port: 0, host: '127.0.0.1' });
+    const { token, id: credentialId } = await widgetToken(cidadeId, 'Agente remoto');
+    const connect = async (bearer: string) => {
+      const client = new Client({ name: 'vitest-http', version: '1.0.0' });
+      await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/api/v1/mcp`), { requestInit: { headers: { authorization: `Bearer ${bearer}` } } }));
+      return client;
+    };
+    try {
+      const client = await connect(token);
+      expect((await client.listTools()).tools.map((t) => t.name)).toContain('create_request');
+      const project = await projectByCode(cidadeId, 'CAMPO');
+      const created = await client.callTool({ name: 'create_request', arguments: { projectId: project.id, description: 'Criada por agente via MCP remoto (HTTP).', idempotencyKey: `http-${Date.now()}` } });
+      expect(created.isError).toBeFalsy();
+      const req = (created.structuredContent as { request: { id: string; source: string } }).request;
+      expect(req.source).toBe('mcp');
+      const outOfScope = await client.callTool({ name: 'get_request', arguments: { id: (await requestByNumber(marcaId, 1)).id } });
+      expect(outOfScope.isError).toBe(true);
+      await client.close();
+
+      // Sessão de navegador não usa o MCP; GET (stream) não existe no modo sem estado.
+      const byCookie = await fetch(`${base}/api/v1/mcp`, { method: 'POST', headers: { cookie: admin, 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
+      expect(byCookie.status).toBe(403);
+      expect((await fetch(`${base}/api/v1/mcp`, { headers: { authorization: `Bearer ${token}` } })).status).toBe(405);
+
+      await api.inject({ method: 'DELETE', url: `/api/v1/credentials/${credentialId}`, headers: { cookie: admin } });
+      await expect(connect(token)).rejects.toThrow();
+    } finally { await http.close(); }
   });
 });
 

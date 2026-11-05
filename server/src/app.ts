@@ -18,6 +18,7 @@ import { deliveryRoutes } from './routes/deliveries.js';
 import { metricsRoutes } from './routes/metrics.js';
 import { presentationRoutes } from './routes/presentations.js';
 import { accessRoutes } from './routes/access.js';
+import { mcpRoutes } from './routes/mcp.js';
 
 declare module 'fastify' {
   interface FastifyRequest { actor: Actor }
@@ -105,6 +106,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
     await v1.register(metricsRoutes);
     await v1.register(presentationRoutes);
     await v1.register(accessRoutes);
+    await v1.register(mcpRoutes);
   }, { prefix: '/api/v1' });
 
   return app;
