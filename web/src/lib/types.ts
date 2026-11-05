@@ -54,9 +54,11 @@ export type Presentation = Omit<PresentationRow, 'slideCount'> & { projectIds: s
 
 export type Suggestion = {
   index: number; sender: string; sentAt: string | null; excerpt: string; title: string; description: string; category: RequestCategory; priority: RequestPriority; confidence: number;
+  analyzedBy: 'ia' | 'heuristica'; notice?: string;
   ignored?: string; duplicateOf?: { requestId: string; number: number; title: string; score: number }; similarTo?: { index: number; score: number };
 };
-export type IntakePreview = { mode: string; messageCount: number; suggestions: Suggestion[] };
+/** `mode`: "heuristica" ou "ia:<implantação>"; `ai` diz qual modelo analisou ou por que caiu para as regras. */
+export type IntakePreview = { mode: string; ai: { model: string; promptVersion: string; ms: number; tokens: number } | { fallbackReason: string }; messageCount: number; suggestions: Suggestion[] };
 
 export type UserRow = { id: string; name: string; email: string; role: Role; clientId: string | null; isActive: boolean; createdAt: string; clientIds: string[] };
 export type Credential = { id: string; name: string; prefix: string; role: Role; clientId: string | null; clientName: string | null; lastUsedAt: string | null; revokedAt: string | null; createdAt: string };

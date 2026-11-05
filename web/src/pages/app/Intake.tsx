@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { MessageSquareText, Sparkles, CopyCheck, AlertTriangle, ArrowRight, Check } from 'lucide-react';
+import { MessageSquareText, Sparkles, CopyCheck, AlertTriangle, ArrowRight, Check, ShieldCheck } from 'lucide-react';
 import { api, qs } from '@/lib/api';
 import { useMe } from '@/lib/auth';
 import { useScope } from '@/lib/scope';
@@ -28,19 +28,19 @@ export function IntakePage() {
   const [projectId, setProjectId] = useState('');
   const [text, setText] = useState('');
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
-  const [mode, setMode] = useState('');
+  const [analysis, setAnalysis] = useState<Pick<IntakePreview, 'mode' | 'ai'> | null>(null);
   const [done, setDone] = useState<RequestRow[] | null>(null);
   const projects = useQuery({ queryKey: ['projects', clientId], queryFn: () => api.get<Project[]>(`/projects${qs({ clientId })}`), enabled: !!clientId });
   useEffect(() => { if (projects.data?.length && !projects.data.some((p) => p.id === projectId)) setProjectId(projects.data[0].id); }, [projects.data, projectId]);
 
   const preview = useMutation({
     mutationFn: () => api.post<IntakePreview>('/intake/whatsapp-preview', { clientId, projectId: projectId || undefined, text }),
-    onSuccess: (r) => { setMode(r.mode); setDrafts(r.suggestions.map((s) => ({ ...s, include: !s.ignored && !s.duplicateOf }))); setDone(null); const n = r.suggestions.filter((s) => !s.ignored).length; if (n) toast.info(`${n} ${n === 1 ? 'sugestão encontrada' : 'sugestões encontradas'}. Revise antes de criar.`); else toast.info('Nenhuma solicitação encontrada nas mensagens.'); },
+    onSuccess: (r) => { setAnalysis({ mode: r.mode, ai: r.ai }); if ('fallbackReason' in r.ai && r.ai.fallbackReason !== 'IA não configurada') toast.info(`IA indisponível (${r.ai.fallbackReason}); usei a análise por regras.`); setDrafts(r.suggestions.map((s) => ({ ...s, include: !s.ignored && !s.duplicateOf }))); setDone(null); const n = r.suggestions.filter((s) => !s.ignored).length; if (n) toast.info(`${n} ${n === 1 ? 'sugestão encontrada' : 'sugestões encontradas'}. Revise antes de criar.`); else toast.info('Nenhuma solicitação encontrada nas mensagens.'); },
     onError: (e) => toast.bad(e.message),
   });
   const commit = useMutation({
     mutationFn: () => api.post<{ created: RequestRow[] }>('/intake/whatsapp-commit', {
-      clientId, projectId, rawText: text,
+      clientId, projectId, rawText: text, analysisMode: analysis?.mode,
       items: (drafts ?? []).filter((d) => d.include).map((d) => ({ title: d.title, description: d.description, category: d.category, priority: d.priority, sender: d.sender, sentAt: d.sentAt, excerpt: d.excerpt })),
     }),
     onSuccess: (r) => { setDone(r.created); setDrafts(null); setText(''); setScoped(clientId); toast.ok(`${r.created.length} solicitação(ões) registradas.`); },
@@ -65,7 +65,7 @@ export function IntakePage() {
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button onClick={() => preview.mutate()} loading={preview.isPending} disabled={!text.trim() || !clientId} icon={<Sparkles />}>Analisar mensagens</Button>
               <Button variant="ghost" onClick={() => setText(SAMPLE)}>Usar exemplo fictício</Button>
-              <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-ink-4"><span className="size-1.5 rounded-full bg-ok" />modo demonstração determinístico · sem IA externa</span>
+              <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-ink-4"><ShieldCheck size={13} className="text-ok" />Sem nomes, telefones ou e-mails para a IA · nada é gravado sem a sua revisão</span>
             </div>
           </CardContent>
         </Card>
@@ -84,7 +84,7 @@ export function IntakePage() {
           ) : drafts ? (
             <div className="rise">
               <div className="flex items-center justify-between gap-3 mb-3">
-                <div><h2 className="text-xl font-semibold">{drafts.filter((d) => !d.ignored).length} sugestões</h2><p className="text-sm text-ink-4">{drafts.length} blocos de mensagem · análise <span className="font-mono">{mode}</span></p></div>
+                <div><h2 className="text-xl font-semibold">{drafts.filter((d) => !d.ignored).length} sugestões</h2><p className="text-sm text-ink-4">{drafts.length} blocos de mensagem · {analysis && 'model' in analysis.ai ? <>analisado por IA <span className="font-medium text-ink-3">{analysis.ai.model}</span> (Microsoft Foundry) em {(analysis.ai.ms / 1000).toFixed(1)} s</> : <>análise por regras{analysis && 'fallbackReason' in analysis.ai ? ` · ${analysis.ai.fallbackReason}` : ''}</>}</p></div>
                 <Button onClick={() => commit.mutate()} loading={commit.isPending} disabled={!selected.length || !projectId} icon={<CopyCheck />}>{selected.length ? `Registrar ${selected.length} ${selected.length === 1 ? 'solicitação' : 'solicitações'}` : 'Registrar solicitações'}</Button>
               </div>
               <ul className="grid gap-3 rise-list">
@@ -105,7 +105,11 @@ export function IntakePage() {
                                 <Field label="Categoria"><SimpleSelect value={d.category} onValueChange={(v) => update(d.index, { category: v as RequestCategory })} options={CATEGORY_OPTIONS} /></Field>
                                 <Field label="Prioridade"><SimpleSelect value={d.priority} onValueChange={(v) => update(d.index, { priority: v as RequestPriority })} options={PRIORITY_OPTIONS} /></Field>
                               </div>
-                              <Badge tone={d.confidence >= 0.8 ? 'ok' : 'neutral'}>confiança da heurística {Math.round(d.confidence * 100)}%</Badge>
+                              {d.notice && <div className="flex items-start gap-2 rounded-lg bg-warn-soft text-warn px-3 py-2 text-sm"><AlertTriangle size={15} className="mt-0.5 shrink-0" /><span>{d.notice}</span></div>}
+                              <div className="flex flex-wrap gap-1.5">
+                                <Badge tone={d.analyzedBy === 'ia' ? 'orange' : 'neutral'}>{d.analyzedBy === 'ia' ? <><Sparkles size={11} />sugerido por IA</> : 'sugerido por regras'}</Badge>
+                                <Badge tone={d.confidence >= 0.8 ? 'ok' : 'neutral'}>confiança {Math.round(d.confidence * 100)}%</Badge>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -119,7 +123,7 @@ export function IntakePage() {
             <div className="rounded-2xl border border-dashed border-line-2 bg-paper-2/60 p-8 text-center rise">
               <Sparkles size={26} className="mx-auto text-orange-500" />
               <h2 className="mt-3 text-xl font-semibold">As sugestões aparecem aqui</h2>
-              <p className="mt-1 text-base text-ink-3 max-w-[44ch] mx-auto">Cada bloco de mensagens vira uma proposta com título, categoria e prioridade. Repetidas de solicitações abertas são sinalizadas para você decidir.</p>
+              <p className="mt-1 text-base text-ink-3 max-w-[44ch] mx-auto">Cada bloco vira uma proposta com título, categoria e prioridade, sugeridos por IA. Conversa social é descartada e repetidas de solicitações abertas são sinalizadas para você decidir.</p>
             </div>
           )}
         </section>
