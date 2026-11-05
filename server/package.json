@@ -15,6 +15,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "mcp:demo": "tsx scripts/mcp-demo.ts",
+    "e2e": "tsx scripts/e2e.ts",
     "ai:eval": "tsx scripts/ai-eval.ts"
   },
   "dependencies": {
