@@ -45,7 +45,7 @@ Sempre `{ "error": { "code", "message", "details?" } }`. Códigos: `validation` 
 | DELETE | `/requests/{id}/comments/{commentId}` | autor | desfaz um comentário próprio nos primeiros 10 minutos (204; 403 para outro autor ou fora da janela) |
 | POST | `/requests/{id}/attachments` | todos | multipart campo `file`, ≤ 5 MB; imagens, PDF, texto, CSV, XLSX, DOCX |
 | GET | `/attachments/{id}` | todos | download autorizado pelo escopo; anexo de entrega em rascunho é invisível ao cliente |
-| POST | `/intake/whatsapp-preview` | interno | `clientId`, `projectId?`, `text` → sugestões (não grava) |
+| POST | `/intake/whatsapp-preview` | interno | `clientId`, `projectId?`, `text` → sugestões (não grava). Usa IA do Foundry quando configurada; `mode` (`heuristica` ou `ia:<implantação>`) e `ai` informam quem analisou. Ver [AI.md](AI.md) |
 | POST | `/intake/whatsapp-commit` | interno | `clientId`, `projectId`, `rawText`, `items[]` → solicitações com origem `captura_whatsapp` |
 | GET | `/deliveries` | todos | cliente vê só `publicada`; filtros `clientId`, `projectId`, `status`, `from`, `to`, paginação |
 | POST | `/deliveries` | interno | `projectId`, `title`, `summary`, `details?`, `deliveredAt?`, `requestIds?`; `Idempotency-Key` |

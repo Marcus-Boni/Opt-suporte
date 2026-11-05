@@ -15,7 +15,7 @@ Solicitações, entregas e evidências de cada cliente em um só lugar. Portal p
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-FF6B3D)
-![Tests](https://img.shields.io/badge/tests-33%20passing-2EA043)
+![Tests](https://img.shields.io/badge/tests-41%20passing-2EA043)
 
 [Visão geral](#visão-geral) · [Começando](#começando) · [Funcionalidades](#funcionalidades) · [Arquitetura](#arquitetura) · [API e MCP](#api-e-mcp) · [Design e motion](#design-e-motion) · [Testes](#testes)
 
@@ -138,6 +138,7 @@ Tokens de API/MCP criados pelo seed (o banco guarda só o hash):
 | `pnpm typecheck` | Checagem de tipos nos dois pacotes |
 | `pnpm build` | Build de produção do web |
 | `pnpm mcp` | Servidor MCP via STDIO (lê `OPTSOLV_API_TOKEN`) |
+| `pnpm --filter server ai:eval` | Avalia a IA da captura contra o conjunto rotulado (chama o Foundry) |
 | `pnpm --filter server mcp:demo` | Cliente MCP de exemplo: lista ferramentas, cria solicitação e consulta valor |
 
 ## Funcionalidades
@@ -150,7 +151,7 @@ Tokens de API/MCP criados pelo seed (o banco guarda só o hash):
 
 ### Para a equipe Optsolv (backoffice)
 - **Solicitações** de todos os canais numa fila só, com status, prioridade, categoria, responsável, comentários públicos e internos, reabertura com motivo e histórico por evento.
-- **Captura de WhatsApp:** a equipe cola a conversa, a plataforma sugere solicitações, aponta possíveis repetidas e só grava depois da revisão humana (modo determinístico, sem IA externa).
+- **Captura de WhatsApp com IA (Microsoft Foundry):** a equipe cola a conversa; a IA separa pedidos de conversa social e sugere título, categoria e prioridade; repetidas são apontadas e nada é gravado sem revisão humana. Sem IA disponível, regras locais assumem. Ver [`docs/AI.md`](docs/AI.md).
 - **Entregas e evidências:** uma entrega atende várias solicitações; evidências separadas em benefício observado, esperado e impacto medido (valor, unidade e fonte obrigatórios).
 - **Painéis:** abertas, concluídas, sem responsável, aguardando cliente, mediana de dias até concluir, série mensal e distribuição por origem e categoria.
 - **Apresentações executivas:** geradas por cliente, projetos e período; narrativa editável, modo tela cheia, exportação em PDF e compartilhamento com o portal.
@@ -195,6 +196,7 @@ flowchart LR
 | **Banco** | PostgreSQL 17: Docker Compose local, Azure Database for PostgreSQL em produção; TLS verificado, migrações SQL versionadas, anexos em `bytea` |
 | **Web** | React 19, Vite 7, React Router 7, TanStack Query 5, Tailwind CSS 4, shadcn/ui (Radix) |
 | **Interface** | Recharts, cmdk, Sonner, react-day-picker, Lucide |
+| **IA** | Microsoft Foundry (Azure OpenAI, Responses API v1, saída em JSON Schema estrito), SDK `openai` + `@azure/identity` (Entra ID, sem chaves) |
 | **Motion** | GSAP (SplitText, ScrollTrigger), anime.js 4, Lenis, View Transitions API |
 | **Qualidade** | TypeScript estrito, Vitest com banco isolado |
 
@@ -204,7 +206,7 @@ flowchart LR
 - **Conteúdo interno filtrado na consulta.** Comentários e eventos internos saem do banco já filtrados por `visibility`/`isPublic`; não são apenas escondidos na tela.
 - **Sessão em cookie assinado e credenciais Bearer** em vez de JWT: revogação imediata e nenhuma dependência extra.
 - **Exportação em PDF pela impressão do navegador:** a rota `/imprimir` gera um slide por página A4 paisagem.
-- **Captura de WhatsApp determinística:** heurísticas locais e revisão humana. Um provedor de IA pode entrar depois sem mudar o contrato de `/intake/whatsapp-preview`.
+- **IA com plano B:** a captura chama o modelo do Foundry direto (sem agente: é uma extração de uma etapa), com Entra ID, dados pessoais mascarados e saída validada; qualquer falha cai para as regras locais e o modo usado fica registrado.
 
 ### Estrutura do repositório
 
@@ -229,7 +231,7 @@ flowchart LR
 │       ├── pages/shared/   modo apresentação e impressão
 │       ├── components/     design system (ui/), slides, gráficos, esqueletos, telas de status
 │       └── lib/            API, autenticação, tema, toasts
-├── docs/                   API.md, MCP.md, DATABASE.md, TESTES.md, screenshots/, evidencias/
+├── docs/                   API.md, MCP.md, DATABASE.md, AI.md, TESTES.md, screenshots/, evidencias/
 └── assets/marca_oficial/   fonte da verdade dos logotipos
 ```
 
@@ -266,18 +268,19 @@ A solicitação criada aparece no backoffice com a origem **API** (ou **Agente M
 pnpm test
 ```
 
-33 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
+41 testes (Vitest) rodam em um banco separado (`optsolv_experience_test`), recriado, migrado e semeado a cada execução. A suíte cobre:
 - isolamento entre clientes na API, no MCP e no download de anexos;
 - criação via API e MCP, com idempotência;
 - upload com limites de tamanho e tipo;
 - concorrência e heurísticas da captura de WhatsApp;
-- anexos no banco (bytes íntegros, ETag/304, assinatura de arquivo) e travas contra banco remoto.
+- anexos no banco (bytes íntegros, ETag/304, assinatura de arquivo) e travas contra banco remoto;
+- IA da captura com modelo simulado: validação da saída, filtro de conteúdo, mascaramento de dados pessoais e fallback.
 
 As jornadas de interface (D1 a D7) estão documentadas com capturas em [`docs/TESTES.md`](docs/TESTES.md).
 
 ## Limitações conhecidas
 
-- Sem integração direta com o WhatsApp: a entrada é por colagem, e a análise é heurística (rotulada assim na tela).
+- Sem integração direta com o WhatsApp: a entrada é por colagem e revisão humana; a IA sugere, não grava.
 - PDF gerado pelo diálogo de impressão do navegador, não no servidor.
 - Permissões por cliente; colaboradores veem todos os projetos dos clientes vinculados.
 - Sem notificações por e-mail, SLA, registro de horas ou redefinição de senha.
